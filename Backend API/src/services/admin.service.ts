@@ -667,6 +667,30 @@ export type ResetAdminPasswordResult =
     | "SAME_PASSWORD";
   };
 
+/* ==========================================================================
+ Approve Pending Deposit Result
+ ========================================================================== */
+
+export interface ApprovePendingDepositResult {
+  requestId: string;
+  memberId: string;
+  memberName: string;
+  shareCount: number;
+  weeklyAmount: number;
+  weeks: number;
+  depositAmount: number;
+  paymentMethod: AdminDepositPaymentMethod;
+  collectionWeek: number;
+  allocationWeek: number;
+  latestCoveredWeek: number;
+  allocatedWeeks: number[];
+  weeklyEntries: number;
+  advanceEntries: 0;
+  status: "APPROVED";
+  approvedDate: string;
+  adminId: string;
+}
+
 
 /* ==========================================================================
    Reject Pending Deposit Result
@@ -3392,11 +3416,11 @@ export async function createAdminWeeklyDeposit(
     ).trim();
 
   const cleanPaymentMethod =
-  String(
-    paymentMethod || ""
-  )
-    .trim()
-    .toLowerCase();
+    String(
+      paymentMethod || ""
+    )
+      .trim()
+      .toLowerCase();
 
 
   /* ------------------------------------------------------------------------
@@ -3608,11 +3632,11 @@ export async function createAdminWeeklyDeposit(
   const collectionWeek =
     memberCollectionRows.length > 0
       ? Math.max(
-          ...memberCollectionRows.map(
-            (collection) =>
-              collection.weekNumber
-          )
+        ...memberCollectionRows.map(
+          (collection) =>
+            collection.weekNumber
         )
+      )
       : 0;
 
 
@@ -3768,9 +3792,9 @@ export async function createAdminWeeklyDeposit(
   const allocationWeek =
     memberCollectionRows.length > 0
       ? Math.max(
-          collectionWeek + 1,
-          memberStartWeek
-        )
+        collectionWeek + 1,
+        memberStartWeek
+      )
       : memberStartWeek;
 
 
@@ -3831,14 +3855,14 @@ export async function createAdminWeeklyDeposit(
     requestDate;
 
   const pendingDepositRows =
-  await getSheetValues(
-    "Pending Deposits!A:P"
-  );
+    await getSheetValues(
+      "Pending Deposits!A:P"
+    );
 
-const requestId =
-  getNextDepositId(
-    pendingDepositRows
-  );
+  const requestId =
+    getNextDepositId(
+      pendingDepositRows
+    );
 
 
   const adminDepositNote =
@@ -3933,20 +3957,20 @@ const requestId =
   const latestCollectionWeek =
     latestMemberCollections.length > 0
       ? Math.max(
-          ...latestMemberCollections.map(
-            (collection) =>
-              collection.weekNumber
-          )
+        ...latestMemberCollections.map(
+          (collection) =>
+            collection.weekNumber
         )
+      )
       : 0;
 
 
   const finalAllocationWeek =
     latestMemberCollections.length > 0
       ? Math.max(
-          latestCollectionWeek + 1,
-          memberStartWeek
-        )
+        latestCollectionWeek + 1,
+        memberStartWeek
+      )
       : memberStartWeek;
 
 
@@ -4104,8 +4128,8 @@ const requestId =
   const latestCoveredWeek =
     allocatedWeeks.length > 0
       ? Math.max(
-          ...allocatedWeeks
-        )
+        ...allocatedWeeks
+      )
       : finalAllocationWeek;
 
 
@@ -4224,7 +4248,7 @@ export async function approvePendingAdminDeposit(
 
   const requestRow =
     pendingRows[
-      requestRowIndex
+    requestRowIndex
     ];
 
 
@@ -4332,9 +4356,9 @@ export async function approvePendingAdminDeposit(
 
   if (
     paymentMethod !==
-      "cash" &&
+    "cash" &&
     paymentMethod !==
-      "bkash"
+    "bkash"
   ) {
     throw new Error(
       "INVALID_PAYMENT_METHOD"
@@ -4541,11 +4565,11 @@ export async function approvePendingAdminDeposit(
   const collectionWeek =
     memberCollectionRows.length > 0
       ? Math.max(
-          ...memberCollectionRows.map(
-            (collection) =>
-              collection.weekNumber
-          )
+        ...memberCollectionRows.map(
+          (collection) =>
+            collection.weekNumber
         )
+      )
       : 0;
 
 
@@ -4692,9 +4716,9 @@ export async function approvePendingAdminDeposit(
   const allocationWeek =
     memberCollectionRows.length > 0
       ? Math.max(
-          collectionWeek + 1,
-          memberStartWeek
-        )
+        collectionWeek + 1,
+        memberStartWeek
+      )
       : memberStartWeek;
 
 
@@ -5006,8 +5030,8 @@ export async function approvePendingAdminDeposit(
   const newLatestCoveredWeek =
     uniqueAllocatedWeeks.length > 0
       ? Math.max(
-          ...uniqueAllocatedWeeks
-        )
+        ...uniqueAllocatedWeeks
+      )
       : collectionWeek;
 
 
@@ -5050,8 +5074,8 @@ export async function approvePendingAdminDeposit(
         cleanAdminId,
 
         uniqueAllocatedWeeks.length === 1
-  ? `Approved. Covered: Week ${uniqueAllocatedWeeks[0]}`
-  : `Approved. Covered: Week ${uniqueAllocatedWeeks[0]} – Week ${uniqueAllocatedWeeks[uniqueAllocatedWeeks.length - 1]}`,
+          ? `Approved. Covered: Week ${uniqueAllocatedWeeks[0]}`
+          : `Approved. Covered: Week ${uniqueAllocatedWeeks[0]} – Week ${uniqueAllocatedWeeks[uniqueAllocatedWeeks.length - 1]}`,
       ],
     ]
   );

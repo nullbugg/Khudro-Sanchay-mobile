@@ -35,8 +35,6 @@ import adminEmailChangeRoutes
 import adminPendingDepositRoutes 
   from "./routes/admin-pending-deposit.routes";
 
-dotenv.config();
-
 
 const app = express();
 
@@ -242,14 +240,18 @@ app.use(
 /* Server                                                                     */
 /* -------------------------------------------------------------------------- */
 
-app.listen(
-  PORT,
-  "0.0.0.0",
-  () => {
+if (require.main === module) {
+  app.listen(
+    PORT,
+    "0.0.0.0",
+    () => {
 
-    console.log(
-      `Khudro Sanchoy API running on http://localhost:${PORT}`
-    );
+      console.log(
+        `Khudro Sanchoy API running on http://localhost:${PORT}`
+      );
 
-  }
-);
+    }
+  );
+}
+
+export default app;
