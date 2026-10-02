@@ -4,10 +4,6 @@ import express from "express";
 import cors from "cors";
 
 
-import {
-  getSheetValues,
-} from "./config/google-sheets";
-
 import memberAuthRoutes
   from "./routes/member-auth.routes";
 
@@ -94,56 +90,6 @@ app.get(
       message:
         "API is healthy",
     });
-
-  }
-);
-
-
-/* -------------------------------------------------------------------------- */
-/* Google Sheets Test                                                         */
-/* -------------------------------------------------------------------------- */
-
-app.get(
-  "/api/test/google-sheets",
-  async (_req, res) => {
-
-    try {
-
-      const rows =
-        await getSheetValues(
-          "Members!A:J"
-        );
-
-
-      res.json({
-        success: true,
-
-        message:
-          "Google Sheets connection successful",
-
-        rowCount:
-          rows.length,
-
-        rows,
-      });
-
-
-    } catch (error) {
-
-      console.error(
-        "Google Sheets error:",
-        error
-      );
-
-
-      res.status(500).json({
-        success: false,
-
-        message:
-          "Google Sheets connection failed",
-      });
-
-    }
 
   }
 );
