@@ -14,8 +14,10 @@ export default function RootLayout() {
       <Stack.Screen name="member/login" />
       <Stack.Screen name="member/dashboard" />
       <Stack.Screen name="member/profile" />
+      <Stack.Screen name="member/change-email" />
       <Stack.Screen name="member/change-pin" />
       <Stack.Screen name="member/deposit" />
+      <Stack.Screen name="member/forget-pin" />
 
       {/* Admin */}
       <Stack.Screen name="admin/login" />

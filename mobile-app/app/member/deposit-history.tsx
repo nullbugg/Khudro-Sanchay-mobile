@@ -1,6 +1,7 @@
 import React, {
     useCallback,
     useEffect,
+    useRef,
     useState,
 } from 'react';
 
@@ -8,6 +9,10 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 
 import {
     ActivityIndicator,
+    Alert,
+    Animated,
+    Easing,
+    Pressable,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -21,9 +26,11 @@ import {
 
 import {
     router,
+    useFocusEffect,
 } from 'expo-router';
 
 import {
+    clearCurrentMember,
     getCurrentMember,
     getMemberDepositHistory,
     MemberDepositHistoryResult,
@@ -32,6 +39,7 @@ import {
 
 import {
     getMemberLanguage,
+    setMemberLanguage,
     MemberLanguage,
 } from '../../lib/member-language';
 
@@ -192,6 +200,75 @@ function formatDate(
             year: 'numeric',
         }
     );
+}
+
+function formatDateTime(
+    value: string,
+    language: MemberLanguage
+): string {
+    if (!value) {
+        return '-';
+    }
+
+    const raw =
+        String(value).trim();
+
+    const date =
+        new Date(raw);
+
+    if (
+        Number.isNaN(
+            date.getTime()
+        )
+    ) {
+        return raw;
+    }
+
+    const day =
+        String(
+            date.getDate()
+        ).padStart(2, '0');
+
+    const month =
+        String(
+            date.getMonth() + 1
+        ).padStart(2, '0');
+
+    const year =
+        date.getFullYear();
+
+    let hours =
+        date.getHours();
+
+    const minutes =
+        String(
+            date.getMinutes()
+        ).padStart(2, '0');
+
+    const seconds =
+        String(
+            date.getSeconds()
+        ).padStart(2, '0');
+
+    const period =
+        hours >= 12
+            ? 'PM'
+            : 'AM';
+
+    hours =
+        hours % 12;
+
+    if (hours === 0) {
+        hours = 12;
+    }
+
+    const formattedHours =
+        String(hours).padStart(
+            2,
+            '0'
+        );
+
+    return `${day}-${month}-${year} ${formattedHours}:${minutes}:${seconds} ${period}`;
 }
 
 /*
@@ -401,7 +478,7 @@ function DepositHistoryCard({
                             }
                         >
                             {language ===
-                            'bn'
+                                'bn'
                                 ? 'জমার আবেদন'
                                 : 'Deposit Request'}
                         </Text>
@@ -478,7 +555,7 @@ function DepositHistoryCard({
                         }
                     >
                         {language ===
-                        'bn'
+                            'bn'
                             ? 'মোট জমা'
                             : 'Total Deposit'}
                     </Text>
@@ -505,8 +582,8 @@ function DepositHistoryCard({
                         }
                     >
                         {language ===
-                        'bn'
-                            ? 'সপ্তাহ'
+                            'bn'
+                            ? 'কত সপ্তাহের জমা'
                             : 'Weeks'}
                     </Text>
 
@@ -537,7 +614,7 @@ function DepositHistoryCard({
                         }
                     >
                         {language ===
-                        'bn'
+                            'bn'
                             ? 'শেয়ার'
                             : 'Shares'}
                     </Text>
@@ -562,8 +639,8 @@ function DepositHistoryCard({
                         }
                     >
                         {language ===
-                        'bn'
-                            ? 'সাপ্তাহিক'
+                            'bn'
+                            ? 'সাপ্তাহিক জমা'
                             : 'Weekly'}
                     </Text>
 
@@ -589,7 +666,7 @@ function DepositHistoryCard({
                         }
                     >
                         {language ===
-                        'bn'
+                            'bn'
                             ? 'পেমেন্ট'
                             : 'Payment'}
                     </Text>
@@ -617,8 +694,8 @@ function DepositHistoryCard({
                         }
                     >
                         {language ===
-                        'bn'
-                            ? 'আবেদনের তারিখ'
+                            'bn'
+                            ? 'আবেদনের তারিখ ও সময়'
                             : 'Request Date'}
                     </Text>
 
@@ -627,7 +704,7 @@ function DepositHistoryCard({
                             styles.detailValue
                         }
                     >
-                        {formatDate(
+                        {formatDateTime(
                             request.requestDate,
                             language
                         )}
@@ -658,9 +735,9 @@ function DepositHistoryCard({
                         }
                     >
                         {language ===
-                        'bn'
-                            ? 'প্রেরকের নম্বর'
-                            : 'Sender Number'}
+                            'bn'
+                            ? 'যে নম্বর থেকে টাকা পাঠানো হয়েছে'
+                            : 'Send Money Number'}
                     </Text>
 
                     <Text
@@ -696,7 +773,7 @@ function DepositHistoryCard({
                         }
                     >
                         {language ===
-                        'bn'
+                            'bn'
                             ? 'bKash চার্জ'
                             : 'bKash Charge'}
                     </Text>
@@ -717,9 +794,9 @@ function DepositHistoryCard({
             {Number(
                 request.payableAmount
             ) > 0 &&
-            String(
-                request.paymentMethod
-            ).toLowerCase() ===
+                String(
+                    request.paymentMethod
+                ).toLowerCase() ===
                 'bkash' ? (
                 <View
                     style={
@@ -738,7 +815,7 @@ function DepositHistoryCard({
                         }
                     >
                         {language ===
-                        'bn'
+                            'bn'
                             ? 'পরিশোধযোগ্য'
                             : 'Payable'}
                     </Text>
@@ -768,7 +845,7 @@ function DepositHistoryCard({
                     <Ionicons
                         name={
                             status ===
-                            'APPROVED'
+                                'APPROVED'
                                 ? 'checkmark-done-outline'
                                 : 'calendar-outline'
                         }
@@ -782,13 +859,13 @@ function DepositHistoryCard({
                         }
                     >
                         {status ===
-                        'APPROVED'
+                            'APPROVED'
                             ? language ===
-                              'bn'
-                                ? 'অনুমোদনের তারিখ'
+                                'bn'
+                                ? 'অনুমোদনের তারিখ ও সময়'
                                 : 'Approved Date'
                             : language ===
-                              'bn'
+                                'bn'
                                 ? 'প্রক্রিয়ার তারিখ'
                                 : 'Processed Date'}
                     </Text>
@@ -798,7 +875,7 @@ function DepositHistoryCard({
                             styles.infoValue
                         }
                     >
-                        {formatDate(
+                        {formatDateTime(
                             request.approvedDate,
                             language
                         )}
@@ -830,7 +907,7 @@ function DepositHistoryCard({
                             }
                         >
                             {language ===
-                            'bn'
+                                'bn'
                                 ? 'নোট'
                                 : 'Note'}
                         </Text>
@@ -853,6 +930,86 @@ function DepositHistoryCard({
 
 /*
 |--------------------------------------------------------------------------
+| Drawer Menu Item
+|--------------------------------------------------------------------------
+*/
+
+function MenuItem({
+    icon,
+    label,
+    active = false,
+    onPress,
+}: {
+    icon: React.ComponentProps<
+        typeof Ionicons
+    >['name'];
+    label: string;
+    active?: boolean;
+    onPress: () => void;
+}) {
+    return (
+        <Pressable
+            onPress={
+                onPress
+            }
+            style={({
+                pressed,
+            }) => [
+                    styles.menuItem,
+                    active &&
+                    styles.menuItemActive,
+                    pressed &&
+                    !active &&
+                    styles.menuItemPressed,
+                ]}
+        >
+            <View
+                style={
+                    styles.menuItemIconContainer
+                }
+            >
+                <Ionicons
+                    name={icon}
+                    size={19}
+                    color={
+                        active
+                            ? '#ffffff'
+                            : '#64748b'
+                    }
+                />
+            </View>
+
+            <Text
+                style={[
+                    styles.menuItemText,
+                    active &&
+                    styles.menuItemTextActive,
+                ]}
+            >
+                {label}
+            </Text>
+        </Pressable>
+    );
+}
+
+/*
+|--------------------------------------------------------------------------
+| Menu Divider
+|--------------------------------------------------------------------------
+*/
+
+function MenuDivider() {
+    return (
+        <View
+            style={
+                styles.menuDivider
+            }
+        />
+    );
+}
+
+/*
+|--------------------------------------------------------------------------
 | Main Screen
 |--------------------------------------------------------------------------
 */
@@ -864,6 +1021,16 @@ export default function DepositHistoryScreen() {
     ] = useState<MemberLanguage>(
         'bn'
     );
+
+    const [
+        memberName,
+        setMemberName,
+    ] = useState('');
+
+    const [
+        memberId,
+        setMemberId,
+    ] = useState('');
 
     const [
         requests,
@@ -887,40 +1054,413 @@ export default function DepositHistoryScreen() {
         setErrorMessage,
     ] = useState('');
 
+    const [
+        menuOpen,
+        setMenuOpen,
+    ] = useState(false);
+
+    const [
+        menuMounted,
+        setMenuMounted,
+    ] = useState(false);
+
+    const drawerTranslateX =
+        useRef(
+            new Animated.Value(
+                -315
+            )
+        ).current;
+
+    const overlayOpacity =
+        useRef(
+            new Animated.Value(
+                0
+            )
+        ).current;
+
     /*
      * ---------------------------------------------------------------
-     * Load language
+     * Translations
      * ---------------------------------------------------------------
      */
 
-    useEffect(() => {
-        let mounted = true;
+    const t =
+        language === 'bn'
+            ? {
+                appName:
+                    'ক্ষুদ্র সঞ্চয়',
 
-        async function loadLanguage() {
-            try {
-                const savedLanguage =
-                    await getMemberLanguage();
+                appSubtitle:
+                    'সমবায় সমিতি',
 
-                if (mounted) {
-                    setLanguage(
-                        savedLanguage
-                    );
-                }
-            } catch {
-                if (mounted) {
-                    setLanguage(
-                        'bn'
-                    );
-                }
+                memberPanel:
+                    'সদস্য প্যানেল',
+
+                dashboard:
+                    'ড্যাশবোর্ড',
+
+                profile:
+                    'প্রোফাইল',
+
+                changeGmail:
+                    'জি-মেইল পরিবর্তন',
+
+                changePin:
+                    'পিন পরিবর্তন',
+
+                weeklyDeposit:
+                    'সাপ্তাহিক জমা',
+
+                pendingDeposit:
+                    'অপেক্ষমাণ জমা',
+
+                weeklyHistory:
+                    'সাপ্তাহিক জমার ইতিহাস',
+
+                language:
+                    'ভাষা নির্বাচন করুন',
+
+                bangla:
+                    'বাংলা',
+
+                english:
+                    'EN',
+
+                logout:
+                    'লগআউট',
+
+                memberId:
+                    'সদস্য ID',
+
+                title:
+                    'সাপ্তাহিক জমার ইতিহাস',
+
+                summaryTitle:
+                    'জমার আবেদন',
+
+                summarySubtitle:
+                    'মোট আবেদন',
+
+                pending:
+                    'অপেক্ষমাণ',
+
+                approved:
+                    'অনুমোদিত',
+
+                rejected:
+                    'বাতিল',
+
+                loading:
+                    'ইতিহাস লোড হচ্ছে...',
+
+                error:
+                    'Deposit history load করা যায়নি',
+
+                emptyTitle:
+                    'কোনো জমার ইতিহাস নেই',
+
+                emptyText:
+                    'আপনি যখন কোনো জমার আবেদন করবেন, সেটি এখানে দেখা যাবে।',
+
+                logoutTitle:
+                    'লগআউট',
+
+                logoutMessage:
+                    'আপনি কি লগআউট করতে চান?',
+
+                cancel:
+                    'বাতিল',
+
+                logoutConfirm:
+                    'লগআউট',
             }
-        }
+            : {
+                appName:
+                    'ক্ষুদ্র সঞ্চয়',
 
-        loadLanguage();
+                appSubtitle:
+                    'সমবায় সমিতি',
 
-        return () => {
-            mounted = false;
-        };
-    }, []);
+                memberPanel:
+                    'Member Panel',
+
+                dashboard:
+                    'Dashboard',
+
+                profile:
+                    'Profile',
+
+                changeGmail:
+                    'Change Gmail',
+
+                changePin:
+                    'Change PIN',
+
+                weeklyDeposit:
+                    'Weekly Deposit',
+
+                pendingDeposit:
+                    'Pending Deposit',
+
+                weeklyHistory:
+                    'Weekly Deposit History',
+
+                language:
+                    'Select Language',
+
+                bangla:
+                    'বাংলা',
+
+                english:
+                    'EN',
+
+                logout:
+                    'Logout',
+
+                memberId:
+                    'Member ID',
+
+                title:
+                    'Weekly Deposit History',
+
+                summaryTitle:
+                    'Deposit Requests',
+
+                summarySubtitle:
+                    'Total requests',
+
+                pending:
+                    'Pending',
+
+                approved:
+                    'Approved',
+
+                rejected:
+                    'Rejected',
+
+                loading:
+                    'Loading history...',
+
+                error:
+                    'Deposit history could not be loaded',
+
+                emptyTitle:
+                    'No deposit history',
+
+                emptyText:
+                    'Your deposit requests will appear here when you make a deposit request.',
+
+                logoutTitle:
+                    'Logout',
+
+                logoutMessage:
+                    'Are you sure you want to logout?',
+
+                cancel:
+                    'Cancel',
+
+                logoutConfirm:
+                    'Logout',
+            };
+
+    /*
+     * ---------------------------------------------------------------
+     * Drawer
+     * ---------------------------------------------------------------
+     */
+
+    const openMenu =
+        useCallback(() => {
+            setMenuMounted(
+                true
+            );
+
+            setMenuOpen(
+                true
+            );
+
+            requestAnimationFrame(
+                () => {
+                    Animated.parallel(
+                        [
+                            Animated.timing(
+                                drawerTranslateX,
+                                {
+                                    toValue: 0,
+                                    duration: 260,
+                                    easing:
+                                        Easing.out(
+                                            Easing.cubic
+                                        ),
+                                    useNativeDriver:
+                                        true,
+                                }
+                            ),
+
+                            Animated.timing(
+                                overlayOpacity,
+                                {
+                                    toValue: 1,
+                                    duration: 220,
+                                    easing:
+                                        Easing.out(
+                                            Easing.cubic
+                                        ),
+                                    useNativeDriver:
+                                        true,
+                                }
+                            ),
+                        ]
+                    ).start();
+                }
+            );
+        }, [
+            drawerTranslateX,
+            overlayOpacity,
+        ]);
+
+    const closeMenu =
+        useCallback(
+            (
+                callback?: () => void
+            ) => {
+                setMenuOpen(
+                    false
+                );
+
+                Animated.parallel(
+                    [
+                        Animated.timing(
+                            drawerTranslateX,
+                            {
+                                toValue:
+                                    -315,
+                                duration: 230,
+                                easing:
+                                    Easing.in(
+                                        Easing.cubic
+                                    ),
+                                useNativeDriver:
+                                    true,
+                            }
+                        ),
+
+                        Animated.timing(
+                            overlayOpacity,
+                            {
+                                toValue: 0,
+                                duration: 200,
+                                easing:
+                                    Easing.in(
+                                        Easing.cubic
+                                    ),
+                                useNativeDriver:
+                                    true,
+                            }
+                        ),
+                    ]
+                ).start(
+                    () => {
+                        setMenuMounted(
+                            false
+                        );
+
+                        if (
+                            callback
+                        ) {
+                            callback();
+                        }
+                    }
+                );
+            },
+            [
+                drawerTranslateX,
+                overlayOpacity,
+            ]
+        );
+
+    const handleMenuPress =
+        useCallback(
+            (
+                path: string
+            ) => {
+                closeMenu(
+                    () => {
+                        router.push(
+                            path as any
+                        );
+                    }
+                );
+            },
+            [
+                closeMenu,
+            ]
+        );
+
+    /*
+     * ---------------------------------------------------------------
+     * Language
+     * ---------------------------------------------------------------
+     */
+
+    const changeLanguage =
+        useCallback(
+            async (
+                nextLanguage: MemberLanguage
+            ) => {
+                setLanguage(
+                    nextLanguage
+                );
+
+                await setMemberLanguage(
+                    nextLanguage
+                );
+            },
+            []
+        );
+
+    /*
+     * ---------------------------------------------------------------
+     * Logout
+     * ---------------------------------------------------------------
+     */
+
+    const handleLogout =
+        useCallback(() => {
+            closeMenu(
+                () => {
+                    Alert.alert(
+                        t.logoutTitle,
+                        t.logoutMessage,
+                        [
+                            {
+                                text:
+                                    t.cancel,
+                                style:
+                                    'cancel',
+                            },
+                            {
+                                text:
+                                    t.logoutConfirm,
+                                style:
+                                    'destructive',
+                                onPress:
+                                    async () => {
+                                        await clearCurrentMember();
+
+                                        router.replace(
+                                            '/member/login'
+                                        );
+                                    },
+                            },
+                        ]
+                    );
+                }
+            );
+        }, [
+            closeMenu,
+            t,
+        ]);
 
     /*
      * ---------------------------------------------------------------
@@ -946,6 +1486,13 @@ export default function DepositHistoryScreen() {
                         ''
                     );
 
+                    const savedLanguage =
+                        await getMemberLanguage();
+
+                    setLanguage(
+                        savedLanguage
+                    );
+
                     const memberResult =
                         await getCurrentMember();
 
@@ -958,21 +1505,34 @@ export default function DepositHistoryScreen() {
                         );
 
                         setErrorMessage(
-                            language ===
-                            'bn'
+                            savedLanguage ===
+                                'bn'
                                 ? 'Member session পাওয়া যায়নি। আবার login করুন।'
                                 : 'Member session was not found. Please login again.'
+                        );
+
+                        router.replace(
+                            '/member/login'
                         );
 
                         return;
                     }
 
+                    const member =
+                        memberResult.member;
+
+                    setMemberName(
+                        member.memberName
+                    );
+
+                    setMemberId(
+                        member.memberId
+                    );
+
                     const historyResult:
                         MemberDepositHistoryResult =
                         await getMemberDepositHistory(
-                            memberResult
-                                .member
-                                .memberId
+                            member.memberId
                         );
 
                     if (
@@ -984,12 +1544,12 @@ export default function DepositHistoryScreen() {
 
                         setErrorMessage(
                             historyResult.message ||
-                                (
-                                    language ===
+                            (
+                                savedLanguage ===
                                     'bn'
-                                        ? 'Deposit history load করা যায়নি'
-                                        : 'Deposit history could not be loaded'
-                                )
+                                    ? 'Deposit history load করা যায়নি'
+                                    : 'Deposit history could not be loaded'
+                            )
                         );
 
                         return;
@@ -1003,7 +1563,7 @@ export default function DepositHistoryScreen() {
                             : []
                     );
                 } catch (
-                    error
+                error
                 ) {
                     console.error(
                         'Deposit history screen error:',
@@ -1016,7 +1576,7 @@ export default function DepositHistoryScreen() {
 
                     setErrorMessage(
                         language ===
-                        'bn'
+                            'bn'
                             ? 'Deposit history load করা যায়নি'
                             : 'Deposit history could not be loaded'
                     );
@@ -1037,15 +1597,22 @@ export default function DepositHistoryScreen() {
 
     /*
      * ---------------------------------------------------------------
-     * Initial load
+     * Focus Load
      * ---------------------------------------------------------------
      */
 
-    useEffect(() => {
-        loadHistory();
-    }, [
-        loadHistory,
-    ]);
+    useFocusEffect(
+        useCallback(
+            () => {
+                loadHistory();
+
+                return () => { };
+            },
+            [
+                loadHistory,
+            ]
+        )
+    );
 
     /*
      * ---------------------------------------------------------------
@@ -1126,63 +1693,81 @@ export default function DepositHistoryScreen() {
                         styles.headerLeft
                     }
                 >
-                    <Ionicons
-                        name="time-outline"
-                        size={23}
-                        color="#0f172a"
-                    />
-
-                    <View
-                        style={
-                            styles.headerTitleArea
+                    <Pressable
+                        onPress={
+                            openMenu
                         }
+                        style={({
+                            pressed,
+                        }) => [
+                                styles.menuButton,
+                                pressed &&
+                                styles.menuButtonPressed,
+                            ]}
                     >
+                        <Ionicons
+                            name="menu"
+                            size={25}
+                            color="#0f172a"
+                        />
+                    </Pressable>
+
+                    <View>
                         <Text
                             style={
-                                styles.headerTitle
+                                styles.appName
                             }
                         >
-                            {language ===
-                            'bn'
-                                ? 'সাপ্তাহিক জমার ইতিহাস'
-                                : 'Weekly Deposit History'}
+                            {
+                                t.appName
+                            }
                         </Text>
 
                         <Text
                             style={
-                                styles.headerSubtitle
+                                styles.appSubtitle
                             }
                         >
-                            {language ===
-                            'bn'
-                                ? 'আপনার সকল জমার আবেদন'
-                                : 'All your deposit requests'}
+                            {
+                                t.appSubtitle
+                            }
                         </Text>
                     </View>
                 </View>
 
                 <View
                     style={
-                        styles.headerActions
+                        styles.memberInfoHeader
                     }
                 >
-                    <Ionicons
-                        name="refresh-outline"
-                        size={22}
-                        color="#475569"
-                        onPress={
-                            handleRefresh
+                    <Text
+                        style={
+                            styles.memberNameHeader
                         }
-                    />
+                        numberOfLines={
+                            1
+                        }
+                    >
+                        {
+                            memberName ||
+                            '—'
+                        }
+                    </Text>
 
-                    <Ionicons
-                        name="close-outline"
-                        size={25}
-                        color="#475569"
-                        onPress={() =>
-                            router.back()
+                    <Text
+                        style={
+                            styles.memberIdHeader
                         }
-                    />
+                        numberOfLines={
+                            1
+                        }
+                    >
+                        {t.memberId}:{' '}
+                        {
+                            memberId ||
+                            '—'
+                        }
+                    </Text>
                 </View>
             </View>
 
@@ -1237,10 +1822,9 @@ export default function DepositHistoryScreen() {
                                     styles.summaryTitle
                                 }
                             >
-                                {language ===
-                                'bn'
-                                    ? 'জমার আবেদন'
-                                    : 'Deposit Requests'}
+                                {
+                                    t.summaryTitle
+                                }
                             </Text>
 
                             <Text
@@ -1248,10 +1832,9 @@ export default function DepositHistoryScreen() {
                                     styles.summarySubtitle
                                 }
                             >
-                                {language ===
-                                'bn'
-                                    ? 'মোট আবেদন'
-                                    : 'Total requests'}
+                                {
+                                    t.summarySubtitle
+                                }
                             </Text>
                         </View>
 
@@ -1303,10 +1886,9 @@ export default function DepositHistoryScreen() {
                                     styles.countLabel
                                 }
                             >
-                                {language ===
-                                'bn'
-                                    ? 'অপেক্ষমাণ'
-                                    : 'Pending'}
+                                {
+                                    t.pending
+                                }
                             </Text>
 
                             <Text
@@ -1340,10 +1922,9 @@ export default function DepositHistoryScreen() {
                                     styles.countLabel
                                 }
                             >
-                                {language ===
-                                'bn'
-                                    ? 'অনুমোদিত'
-                                    : 'Approved'}
+                                {
+                                    t.approved
+                                }
                             </Text>
 
                             <Text
@@ -1377,10 +1958,9 @@ export default function DepositHistoryScreen() {
                                     styles.countLabel
                                 }
                             >
-                                {language ===
-                                'bn'
-                                    ? 'বাতিল'
-                                    : 'Rejected'}
+                                {
+                                    t.rejected
+                                }
                             </Text>
 
                             <Text
@@ -1413,17 +1993,16 @@ export default function DepositHistoryScreen() {
                                 styles.loadingText
                             }
                         >
-                            {language ===
-                            'bn'
-                                ? 'ইতিহাস লোড হচ্ছে...'
-                                : 'Loading history...'}
+                            {
+                                t.loading
+                            }
                         </Text>
                     </View>
                 ) : null}
 
                 {/* Error */}
                 {!loading &&
-                errorMessage ? (
+                    errorMessage ? (
                     <View
                         style={
                             styles.errorCard
@@ -1449,8 +2028,8 @@ export default function DepositHistoryScreen() {
 
                 {/* Empty */}
                 {!loading &&
-                !errorMessage &&
-                requests.length ===
+                    !errorMessage &&
+                    requests.length ===
                     0 ? (
                     <View
                         style={
@@ -1474,10 +2053,9 @@ export default function DepositHistoryScreen() {
                                 styles.emptyTitle
                             }
                         >
-                            {language ===
-                            'bn'
-                                ? 'কোনো জমার ইতিহাস নেই'
-                                : 'No deposit history'}
+                            {
+                                t.emptyTitle
+                            }
                         </Text>
 
                         <Text
@@ -1485,18 +2063,17 @@ export default function DepositHistoryScreen() {
                                 styles.emptyText
                             }
                         >
-                            {language ===
-                            'bn'
-                                ? 'আপনি যখন কোনো জমার আবেদন করবেন, সেটি এখানে দেখা যাবে।'
-                                : 'Your deposit requests will appear here when you make a deposit request.'}
+                            {
+                                t.emptyText
+                            }
                         </Text>
                     </View>
                 ) : null}
 
                 {/* History List */}
                 {!loading &&
-                !errorMessage &&
-                requests.length >
+                    !errorMessage &&
+                    requests.length >
                     0 ? (
                     <View
                         style={
@@ -1528,6 +2105,356 @@ export default function DepositHistoryScreen() {
                     }
                 />
             </ScrollView>
+
+            {/* Drawer */}
+            {menuMounted ? (
+                <View
+                    style={
+                        styles.menuOverlay
+                    }
+                >
+                    <Animated.View
+                        style={[
+                            styles.overlayBackground,
+                            {
+                                opacity:
+                                    overlayOpacity,
+                            },
+                        ]}
+                    />
+
+                    <Pressable
+                        style={
+                            styles.overlayPressable
+                        }
+                        onPress={() =>
+                            closeMenu()
+                        }
+                    />
+
+                    <Animated.View
+                        style={[
+                            styles.drawer,
+                            {
+                                transform: [
+                                    {
+                                        translateX:
+                                            drawerTranslateX,
+                                    },
+                                ],
+                            },
+                        ]}
+                    >
+                        <SafeAreaView
+                            style={
+                                styles.drawerSafeArea
+                            }
+                            edges={[
+                                'top',
+                                'bottom',
+                            ]}
+                        >
+                            {/* Drawer Header */}
+                            <View
+                                style={
+                                    styles.drawerHeader
+                                }
+                            >
+                                <View
+                                    style={
+                                        styles.drawerBrand
+                                    }
+                                >
+                                    <View
+                                        style={
+                                            styles.drawerLogo
+                                        }
+                                    >
+                                        <Text
+                                            style={
+                                                styles.takaIcon
+                                            }
+                                        >
+                                            ৳
+                                        </Text>
+                                    </View>
+
+                                    <View>
+                                        <Text
+                                            style={
+                                                styles.drawerAppName
+                                            }
+                                        >
+                                            {
+                                                t.appName
+                                            }
+                                        </Text>
+
+                                        <Text
+                                            style={
+                                                styles.drawerSubtitle
+                                            }
+                                        >
+                                            {
+                                                t.memberPanel
+                                            }
+                                        </Text>
+                                    </View>
+                                </View>
+
+                                <Pressable
+                                    onPress={() =>
+                                        closeMenu()
+                                    }
+                                    style={({
+                                        pressed,
+                                    }) => [
+                                            styles.closeButton,
+                                            pressed &&
+                                            styles.closeButtonPressed,
+                                        ]}
+                                >
+                                    <Ionicons
+                                        name="close"
+                                        size={22}
+                                        color="#475569"
+                                    />
+                                </Pressable>
+                            </View>
+
+                            {/* Menu */}
+                            <ScrollView
+                                showsVerticalScrollIndicator={
+                                    false
+                                }
+                                contentContainerStyle={
+                                    styles.menuScroll
+                                }
+                            >
+                                <View
+                                    style={
+                                        styles.firstMenuItem
+                                    }
+                                >
+                                    <MenuItem
+                                        icon="grid-outline"
+                                        label={
+                                            t.dashboard
+                                        }
+                                        onPress={() =>
+                                            handleMenuPress(
+                                                '/member/dashboard'
+                                            )
+                                        }
+                                    />
+
+                                    <MenuItem
+                                        icon="person-outline"
+                                        label={
+                                            t.profile
+                                        }
+                                        onPress={() =>
+                                            handleMenuPress(
+                                                '/member/profile'
+                                            )
+                                        }
+                                    />
+
+                                    <MenuItem
+                                        icon="mail-outline"
+                                        label={
+                                            t.changeGmail
+                                        }
+                                        onPress={() =>
+                                            handleMenuPress(
+                                                '/member/change-email'
+                                            )
+                                        }
+                                    />
+
+                                    <MenuItem
+                                        icon="lock-closed-outline"
+                                        label={
+                                            t.changePin
+                                        }
+                                        onPress={() =>
+                                            handleMenuPress(
+                                                '/member/change-pin'
+                                            )
+                                        }
+                                    />
+
+                                    <MenuDivider />
+
+                                    <MenuItem
+                                        icon="cash-outline"
+                                        label={
+                                            t.weeklyDeposit
+                                        }
+                                        onPress={() =>
+                                            handleMenuPress(
+                                                '/member/deposit'
+                                            )
+                                        }
+                                    />
+
+                                    <MenuItem
+                                        icon="hourglass-outline"
+                                        label={
+                                            t.pendingDeposit
+                                        }
+                                        onPress={() =>
+                                            handleMenuPress(
+                                                '/member/pending-deposit'
+                                            )
+                                        }
+                                    />
+
+                                    <MenuItem
+                                        icon="receipt-outline"
+                                        label={
+                                            t.weeklyHistory
+                                        }
+                                        active
+                                        onPress={() =>
+                                            closeMenu()
+                                        }
+                                    />
+
+                                    <MenuDivider />
+
+                                    {/* Language */}
+                                    <View
+                                        style={
+                                            styles.languageMenu
+                                        }
+                                    >
+                                        <View
+                                            style={
+                                                styles.menuItemLeft
+                                            }
+                                        >
+                                            <View
+                                                style={
+                                                    styles.menuItemIconContainer
+                                                }
+                                            >
+                                                <Ionicons
+                                                    name="language-outline"
+                                                    size={19}
+                                                    color="#64748b"
+                                                />
+                                            </View>
+
+                                            <Text
+                                                style={
+                                                    styles.menuItemText
+                                                }
+                                            >
+                                                {
+                                                    t.language
+                                                }
+                                            </Text>
+                                        </View>
+
+                                        <View
+                                            style={
+                                                styles.languageOptions
+                                            }
+                                        >
+                                            <Pressable
+                                                onPress={() =>
+                                                    changeLanguage(
+                                                        'bn'
+                                                    )
+                                                }
+                                                style={
+                                                    language ===
+                                                        'bn'
+                                                        ? styles.languageOptionActive
+                                                        : styles.languageOption
+                                                }
+                                            >
+                                                <Text
+                                                    style={
+                                                        language ===
+                                                            'bn'
+                                                            ? styles.languageOptionActiveText
+                                                            : styles.languageOptionText
+                                                    }
+                                                >
+                                                    {
+                                                        t.bangla
+                                                    }
+                                                </Text>
+                                            </Pressable>
+
+                                            <Pressable
+                                                onPress={() =>
+                                                    changeLanguage(
+                                                        'en'
+                                                    )
+                                                }
+                                                style={
+                                                    language ===
+                                                        'en'
+                                                        ? styles.languageOptionActive
+                                                        : styles.languageOption
+                                                }
+                                            >
+                                                <Text
+                                                    style={
+                                                        language ===
+                                                            'en'
+                                                            ? styles.languageOptionActiveText
+                                                            : styles.languageOptionText
+                                                    }
+                                                >
+                                                    {
+                                                        t.english
+                                                    }
+                                                </Text>
+                                            </Pressable>
+                                        </View>
+                                    </View>
+
+                                    <MenuDivider />
+
+                                    {/* Logout */}
+                                    <Pressable
+                                        onPress={
+                                            handleLogout
+                                        }
+                                        style={({
+                                            pressed,
+                                        }) => [
+                                                styles.logoutButton,
+                                                pressed &&
+                                                styles.logoutButtonPressed,
+                                            ]}
+                                    >
+                                        <Ionicons
+                                            name="log-out-outline"
+                                            size={19}
+                                            color="#dc2626"
+                                        />
+
+                                        <Text
+                                            style={
+                                                styles.logoutText
+                                            }
+                                        >
+                                            {
+                                                t.logout
+                                            }
+                                        </Text>
+                                    </Pressable>
+                                </View>
+                            </ScrollView>
+                        </SafeAreaView>
+                    </Animated.View>
+                </View>
+            ) : null}
         </SafeAreaView>
     );
 }
@@ -1546,8 +2473,20 @@ const styles =
                 '#f6f8fb',
         },
 
+        container: {
+            flex: 1,
+            backgroundColor:
+                '#f6f8fb',
+        },
+
+        /*
+         * ---------------------------------------------------------------
+         * Header
+         * ---------------------------------------------------------------
+         */
+
         header: {
-            minHeight: 72,
+            minHeight: 76,
             paddingHorizontal: 18,
             paddingVertical: 12,
             backgroundColor:
@@ -1571,31 +2510,59 @@ const styles =
             flex: 1,
         },
 
-        headerTitleArea: {
-            marginLeft: 10,
-            flex: 1,
+        menuButton: {
+            width: 42,
+            height: 42,
+            borderRadius: 11,
+            backgroundColor:
+                '#f1f5f9',
+            alignItems:
+                'center',
+            justifyContent:
+                'center',
+            marginRight: 11,
         },
 
-        headerTitle: {
-            fontSize: 17,
-            fontWeight: '700',
+        menuButtonPressed: {
+            opacity: 0.65,
+        },
+
+        appName: {
+            fontSize: 16,
+            fontWeight: '800',
             color: '#0f172a',
         },
 
-        headerSubtitle: {
+        appSubtitle: {
             marginTop: 2,
-            fontSize: 12,
+            fontSize: 10,
             color: '#64748b',
         },
 
-        headerActions: {
-            flexDirection:
-                'row',
+        memberInfoHeader: {
+            maxWidth: 145,
             alignItems:
-                'center',
-            gap: 15,
+                'flex-end',
             marginLeft: 10,
         },
+
+        memberNameHeader: {
+            fontSize: 13,
+            fontWeight: '800',
+            color: '#0f172a',
+        },
+
+        memberIdHeader: {
+            marginTop: 2,
+            fontSize: 10,
+            color: '#64748b',
+        },
+
+        /*
+         * ---------------------------------------------------------------
+         * Content
+         * ---------------------------------------------------------------
+         */
 
         scrollView: {
             flex: 1,
@@ -1604,6 +2571,12 @@ const styles =
         contentContainer: {
             padding: 16,
         },
+
+        /*
+         * ---------------------------------------------------------------
+         * Summary
+         * ---------------------------------------------------------------
+         */
 
         summaryCard: {
             backgroundColor:
@@ -1709,6 +2682,12 @@ const styles =
             color: '#334155',
         },
 
+        /*
+         * ---------------------------------------------------------------
+         * Loading / Error / Empty
+         * ---------------------------------------------------------------
+         */
+
         loadingContainer: {
             minHeight: 180,
             alignItems:
@@ -1787,6 +2766,12 @@ const styles =
             textAlign:
                 'center',
         },
+
+        /*
+         * ---------------------------------------------------------------
+         * History
+         * ---------------------------------------------------------------
+         */
 
         historyList: {
             gap: 12,
@@ -2013,5 +2998,279 @@ const styles =
 
         bottomSpace: {
             height: 20,
+        },
+
+        /*
+         * ---------------------------------------------------------------
+         * Drawer
+         * ---------------------------------------------------------------
+         */
+
+        menuOverlay: {
+            position: 'absolute',
+            top: 30,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 1000,
+            elevation: 1000,
+        },
+
+        overlayBackground: {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor:
+                'rgba(15, 23, 42, 0.42)',
+        },
+
+        overlayPressable: {
+            flex: 1,
+        },
+
+        drawer: {
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            left: 0,
+            width: 315,
+            maxWidth: '86%',
+            backgroundColor:
+                '#ffffff',
+            shadowColor: '#000000',
+            shadowOpacity: 0.16,
+            shadowRadius: 15,
+            shadowOffset: {
+                width: 4,
+                height: 0,
+            },
+            elevation: 12,
+        },
+
+        drawerSafeArea: {
+            flex: 1,
+            transform: [
+                { translateY: -30 },
+            ],
+        },
+
+        drawerHeader: {
+            minHeight: 76,
+            paddingHorizontal: 17,
+            borderBottomWidth: 1,
+            borderBottomColor:
+                '#e2e8f0',
+            flexDirection:
+                'row',
+            alignItems:
+                'center',
+            justifyContent:
+                'space-between',
+        },
+
+        drawerBrand: {
+            flexDirection:
+                'row',
+            alignItems:
+                'center',
+        },
+
+        drawerLogo: {
+            width: 43,
+            height: 43,
+            borderRadius: 12,
+            backgroundColor:
+                '#0f172a',
+            alignItems:
+                'center',
+            justifyContent:
+                'center',
+            marginRight: 10,
+        },
+
+        takaIcon: {
+            fontSize: 24,
+            fontWeight: '900',
+            color: '#ffffff',
+            lineHeight: 28,
+        },
+
+        drawerAppName: {
+            fontSize: 14,
+            fontWeight: '800',
+            color: '#0f172a',
+        },
+
+        drawerSubtitle: {
+            marginTop: 2,
+            fontSize: 10,
+            color: '#64748b',
+        },
+
+        closeButton: {
+            width: 38,
+            height: 38,
+            borderRadius: 10,
+            backgroundColor:
+                '#f1f5f9',
+            alignItems:
+                'center',
+            justifyContent:
+                'center',
+        },
+
+        closeButtonPressed: {
+            opacity: 0.65,
+        },
+
+        menuScroll: {
+            paddingHorizontal: 9,
+            paddingBottom: 15,
+        },
+
+        firstMenuItem: {
+            marginTop: 7,
+        },
+
+        menuItem: {
+            minHeight: 46,
+            borderRadius: 10,
+            paddingHorizontal: 12,
+            flexDirection:
+                'row',
+            alignItems:
+                'center',
+            marginBottom: 2,
+            overflow: 'hidden',
+        },
+
+        menuItemActive: {
+            backgroundColor:
+                '#0f172a',
+        },
+
+        menuItemPressed: {
+            backgroundColor:
+                '#f1f5f9',
+        },
+
+        menuItemIconContainer: {
+            width: 20,
+            height: 20,
+            alignItems:
+                'center',
+            justifyContent:
+                'center',
+        },
+
+        menuItemText: {
+            marginLeft: 12,
+            fontSize: 12,
+            fontWeight: '700',
+            flex: 1,
+            color: '#334155',
+        },
+
+        menuItemTextActive: {
+            color: '#ffffff',
+        },
+
+        menuDivider: {
+            height: 1,
+            backgroundColor:
+                '#e2e8f0',
+            marginVertical: 10,
+            marginHorizontal: 7,
+        },
+
+        /*
+         * ---------------------------------------------------------------
+         * Language
+         * ---------------------------------------------------------------
+         */
+
+        languageMenu: {
+            minHeight: 55,
+            paddingHorizontal: 12,
+            flexDirection:
+                'row',
+            alignItems:
+                'center',
+            justifyContent:
+                'space-between',
+        },
+
+        menuItemLeft: {
+            flexDirection:
+                'row',
+            alignItems:
+                'center',
+            flex: 1,
+        },
+
+        languageOptions: {
+            flexDirection:
+                'row',
+            padding: 3,
+            borderRadius: 9,
+            backgroundColor:
+                '#f1f5f9',
+        },
+
+        languageOption: {
+            paddingHorizontal: 8,
+            paddingVertical: 6,
+            borderRadius: 7,
+        },
+
+        languageOptionActive: {
+            paddingHorizontal: 8,
+            paddingVertical: 5,
+            borderRadius: 7,
+            backgroundColor:
+                '#0f172a',
+        },
+
+        languageOptionText: {
+            fontSize: 9,
+            fontWeight: '800',
+            color: '#64748b',
+        },
+
+        languageOptionActiveText: {
+            fontSize: 9,
+            fontWeight: '800',
+            color: '#ffffff',
+        },
+
+        /*
+         * ---------------------------------------------------------------
+         * Logout
+         * ---------------------------------------------------------------
+         */
+
+        logoutButton: {
+            minHeight: 46,
+            borderRadius: 10,
+            paddingHorizontal: 12,
+            flexDirection:
+                'row',
+            alignItems:
+                'center',
+            backgroundColor:
+                '#fef2f2',
+        },
+
+        logoutButtonPressed: {
+            opacity: 0.65,
+        },
+
+        logoutText: {
+            marginLeft: 12,
+            fontSize: 12,
+            fontWeight: '800',
+            color: '#dc2626',
         },
     });

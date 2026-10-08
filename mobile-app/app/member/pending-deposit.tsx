@@ -1,5 +1,7 @@
 import React, {
     useCallback,
+    useEffect,
+    useRef,
     useState,
 } from 'react';
 
@@ -7,6 +9,9 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 
 import {
     ActivityIndicator,
+    Alert,
+    Animated,
+    Easing,
     Pressable,
     RefreshControl,
     ScrollView,
@@ -27,11 +32,13 @@ import {
 import {
     getCurrentMember,
     getMemberPendingDeposits,
+    clearCurrentMember,
     MemberPendingDeposit,
 } from '../../lib/member-api';
 
 import {
     getMemberLanguage,
+    setMemberLanguage,
     MemberLanguage,
 } from '../../lib/member-language';
 
@@ -49,6 +56,7 @@ function formatMoney(
         amount || 0
     ).toLocaleString('en-BD')}`;
 }
+
 
 function formatDate(
     value: string,
@@ -125,22 +133,87 @@ function formatDate(
     }
 }
 
-function getPaymentLabel(
-    method: string,
-    language: MemberLanguage
-): string {
-    if (
-        String(method).toLowerCase() ===
-        'bkash'
-    ) {
-        return language === 'bn'
-            ? 'bKash'
-            : 'bKash';
-    }
 
-    return language === 'bn'
-        ? 'Cash'
-        : 'Cash';
+/*
+|--------------------------------------------------------------------------
+| Menu Item
+|--------------------------------------------------------------------------
+*/
+
+type MenuItemProps = {
+    icon: React.ComponentProps<
+        typeof Ionicons
+    >['name'];
+    label: string;
+    active?: boolean;
+    onPress: () => void;
+};
+
+
+function MenuItem({
+    icon,
+    label,
+    active = false,
+    onPress,
+}: MenuItemProps) {
+    return (
+        <Pressable
+            onPress={onPress}
+        >
+            {({ pressed }) => {
+                const isHighlighted =
+                    active ||
+                    pressed;
+
+                return (
+                    <View
+                        style={[
+                            styles.menuItem,
+                            isHighlighted &&
+                            styles.menuItemActive,
+                        ]}
+                    >
+                        <View
+                            style={
+                                styles.menuItemIconContainer
+                            }
+                        >
+                            <Ionicons
+                                name={icon}
+                                size={20}
+                                color={
+                                    isHighlighted
+                                        ? '#ffffff'
+                                        : '#475569'
+                                }
+                            />
+                        </View>
+
+                        <Text
+                            style={[
+                                styles.menuItemText,
+                                isHighlighted &&
+                                styles.menuItemTextActive,
+                            ]}
+                        >
+                            {label}
+                        </Text>
+                    </View>
+                );
+            }}
+        </Pressable>
+    );
+}
+
+
+function MenuDivider() {
+    return (
+        <View
+            style={
+                styles.menuDivider
+            }
+        />
+    );
 }
 
 
@@ -151,19 +224,25 @@ function getPaymentLabel(
 */
 
 export default function PendingDepositScreen() {
+
+    /*
+     * ---------------------------------------------------------------
+     * Language
+     * ---------------------------------------------------------------
+     */
+
     const [
         language,
         setLanguage,
     ] =
         useState<MemberLanguage>('bn');
 
-    const [
-        requests,
-        setRequests,
-    ] =
-        useState<
-            MemberPendingDeposit[]
-        >([]);
+
+    /*
+     * ---------------------------------------------------------------
+     * Member
+     * ---------------------------------------------------------------
+     */
 
     const [
         memberName,
@@ -176,6 +255,21 @@ export default function PendingDepositScreen() {
         setMemberId,
     ] =
         useState('');
+
+
+    /*
+     * ---------------------------------------------------------------
+     * Pending Deposits
+     * ---------------------------------------------------------------
+     */
+
+    const [
+        requests,
+        setRequests,
+    ] =
+        useState<
+            MemberPendingDeposit[]
+        >([]);
 
     const [
         loading,
@@ -198,7 +292,541 @@ export default function PendingDepositScreen() {
 
     /*
      * ---------------------------------------------------------------
-     * Load pending deposits
+     * Drawer Animation
+     * ---------------------------------------------------------------
+     */
+
+    const [
+        menuOpen,
+        setMenuOpen,
+    ] =
+        useState(false);
+
+    const [
+        menuMounted,
+        setMenuMounted,
+    ] =
+        useState(false);
+
+    const drawerTranslateX =
+        useRef(
+            new Animated.Value(-315)
+        ).current;
+
+    const overlayOpacity =
+        useRef(
+            new Animated.Value(0)
+        ).current;
+
+
+    /*
+     * ---------------------------------------------------------------
+     * Translation
+     * ---------------------------------------------------------------
+     */
+
+    const t =
+        language === 'en'
+            ? {
+                appName:
+                    'ক্ষুদ্র সঞ্চয়',
+
+                appSubtitle:
+                    'সমবায় সমিতি',
+
+                memberPanel:
+                    'Member Panel',
+
+                dashboard:
+                    'Dashboard',
+
+                profile:
+                    'Profile',
+
+                changeGmail:
+                    'Change Gmail',
+
+                changePin:
+                    'Change PIN',
+
+                weeklyDeposit:
+                    'Weekly Deposit',
+
+                pendingDeposit:
+                    'Pending Deposit',
+
+                weeklyHistory:
+                    'Weekly Deposit History',
+
+                language:
+                    'Select Language',
+
+                bangla:
+                    'বাংলা',
+
+                english:
+                    'EN',
+
+                logout:
+                    'Logout',
+
+                memberId:
+                    'Member ID',
+
+                title:
+                    'Pending Deposit',
+
+                pendingRequests:
+                    'Pending Requests',
+
+                request:
+                    'Request',
+
+                requestId:
+                    'Request ID',
+
+                shareCount:
+                    'Shares',
+
+                weeklyAmount:
+                    'Weekly Amount',
+
+                weeks:
+                    'Number of Weeks',
+
+                depositAmount:
+                    'Deposit Amount',
+
+                paymentMethod:
+                    'Payment Method',
+
+                senderNumber:
+                    'Sender Number',
+
+                bkashCharge:
+                    'bKash Charge',
+
+                payableAmount:
+                    'Payable Amount',
+
+                pending:
+                    'PENDING',
+
+                noRequests:
+                    'No pending deposit requests',
+
+                noRequestsDescription:
+                    'You currently have no deposit request waiting for Admin approval.',
+
+                loadError:
+                    'Could not load pending deposits.',
+
+                retry:
+                    'Retry',
+
+                cash:
+                    'Cash',
+
+                bkash:
+                    'bKash',
+
+                weeksText:
+                    'weeks',
+
+                shareText:
+                    'shares',
+
+                requestDate: 
+                    'Request Date',
+
+                loading:
+                    'Loading...',
+
+                memberNotFound:
+                    'Current member session was not found. Please login again.',
+
+                logoutTitle:
+                    'Logout',
+
+                logoutMessage:
+                    'Are you sure you want to logout?',
+
+                cancel:
+                    'Cancel',
+
+                logoutConfirm:
+                    'Logout',
+            }
+            : {
+                appName:
+                    'ক্ষুদ্র সঞ্চয়',
+
+                appSubtitle:
+                    'সমবায় সমিতি',
+
+                memberPanel:
+                    'সদস্য প্যানেল',
+
+                dashboard:
+                    'ড্যাশবোর্ড',
+
+                profile:
+                    'প্রোফাইল',
+
+                changeGmail:
+                    'জি-মেইল পরিবর্তন',
+
+                changePin:
+                    'পিন পরিবর্তন',
+
+                weeklyDeposit:
+                    'সাপ্তাহিক জমা',
+
+                pendingDeposit:
+                    'অপেক্ষমাণ জমা',
+
+                weeklyHistory:
+                    'সাপ্তাহিক জমার ইতিহাস',
+
+                language:
+                    'ভাষা নির্বাচন করুন',
+
+                bangla:
+                    'বাংলা',
+
+                english:
+                    'EN',
+
+                logout:
+                    'লগআউট',
+
+                memberId:
+                    'সদস্য ID',
+
+                title:
+                    'অপেক্ষমাণ জমা',
+
+                pendingRequests:
+                    'অপেক্ষমাণ অনুরোধ',
+
+                request:
+                    'অনুরোধ',
+
+                requestId:
+                    'অনুরোধ ID',
+
+                shareCount:
+                    'শেয়ার',
+
+                weeklyAmount:
+                    'সাপ্তাহিক জমা',
+
+                weeks:
+                    'কত সপ্তাহের জমা',
+
+                depositAmount:
+                    'জমার পরিমাণ',
+
+                paymentMethod:
+                    'পেমেন্ট পদ্ধতি',
+
+                senderNumber:
+                    'প্রেরকের নম্বর',
+
+                bkashCharge:
+                    'bKash চার্জ',
+
+                payableAmount:
+                    'মোট পরিশোধযোগ্য',
+
+                pending:
+                    'অপেক্ষমাণ',
+
+                noRequests:
+                    'কোনো অপেক্ষমাণ জমা নেই',
+
+                noRequestsDescription:
+                    'বর্তমানে Admin approval-এর জন্য আপনার কোনো জমার অনুরোধ অপেক্ষমাণ নেই।',
+
+                loadError:
+                    'অপেক্ষমাণ জমার তথ্য লোড করা যায়নি।',
+
+                retry:
+                    'আবার চেষ্টা করুন',
+
+                cash:
+                    'Cash',
+
+                bkash:
+                    'bKash',
+
+                weeksText:
+                    'সপ্তাহ',
+
+                shareText:
+                    'শেয়ার',
+
+                requestDate: 
+                    'অনুরোধের তারিখ',
+
+                loading:
+                    'লোড হচ্ছে...',
+
+                memberNotFound:
+                    'বর্তমান সদস্য সেশন পাওয়া যায়নি। আবার লগইন করুন।',
+
+                logoutTitle:
+                    'লগআউট',
+
+                logoutMessage:
+                    'আপনি কি লগআউট করতে চান?',
+
+                cancel:
+                    'বাতিল',
+
+                logoutConfirm:
+                    'লগআউট',
+            };
+
+
+    /*
+     * ---------------------------------------------------------------
+     * Open Menu
+     * ---------------------------------------------------------------
+     */
+
+    const openMenu =
+        useCallback(() => {
+            setMenuMounted(true);
+            setMenuOpen(true);
+
+            drawerTranslateX.setValue(
+                -315
+            );
+
+            overlayOpacity.setValue(
+                0
+            );
+
+            Animated.parallel([
+                Animated.timing(
+                    drawerTranslateX,
+                    {
+                        toValue: 0,
+                        duration: 260,
+                        easing:
+                            Easing.out(
+                                Easing.cubic
+                            ),
+                        useNativeDriver: true,
+                    }
+                ),
+
+                Animated.timing(
+                    overlayOpacity,
+                    {
+                        toValue: 1,
+                        duration: 220,
+                        easing:
+                            Easing.out(
+                                Easing.cubic
+                            ),
+                        useNativeDriver: true,
+                    }
+                ),
+            ]).start();
+        }, [
+            drawerTranslateX,
+            overlayOpacity,
+        ]);
+
+
+    /*
+     * ---------------------------------------------------------------
+     * Close Menu
+     * ---------------------------------------------------------------
+     */
+
+    const closeMenu =
+        useCallback(
+            (
+                callback?: () => void
+            ) => {
+                Animated.parallel([
+                    Animated.timing(
+                        drawerTranslateX,
+                        {
+                            toValue: -315,
+                            duration: 220,
+                            easing:
+                                Easing.in(
+                                    Easing.cubic
+                                ),
+                            useNativeDriver: true,
+                        }
+                    ),
+
+                    Animated.timing(
+                        overlayOpacity,
+                        {
+                            toValue: 0,
+                            duration: 180,
+                            easing:
+                                Easing.in(
+                                    Easing.cubic
+                                ),
+                            useNativeDriver: true,
+                        }
+                    ),
+                ]).start(
+                    () => {
+                        setMenuOpen(
+                            false
+                        );
+
+                        setMenuMounted(
+                            false
+                        );
+
+                        if (callback) {
+                            callback();
+                        }
+                    }
+                );
+            },
+            [
+                drawerTranslateX,
+                overlayOpacity,
+            ]
+        );
+
+
+    /*
+     * ---------------------------------------------------------------
+     * Menu Navigation
+     * ---------------------------------------------------------------
+     */
+
+    const handleMenuPress =
+        useCallback(
+            (
+                path:
+                    | '/member/dashboard'
+                    | '/member/profile'
+                    | '/member/change-email'
+                    | '/member/change-pin'
+                    | '/member/deposit'
+                    | '/member/pending-deposit'
+                    | '/member/deposit-history'
+            ) => {
+                closeMenu(
+                    () => {
+                        router.push(
+                            path
+                        );
+                    }
+                );
+            },
+            [closeMenu]
+        );
+
+
+    /*
+     * ---------------------------------------------------------------
+     * Change Language
+     * ---------------------------------------------------------------
+     */
+
+    const changeLanguage =
+        useCallback(
+            async (
+                nextLanguage: MemberLanguage
+            ) => {
+                if (
+                    nextLanguage ===
+                    language
+                ) {
+                    return;
+                }
+
+                setLanguage(
+                    nextLanguage
+                );
+
+                try {
+                    await setMemberLanguage(
+                        nextLanguage
+                    );
+                } catch (error) {
+                    console.error(
+                        'Member language save error:',
+                        error
+                    );
+                }
+            },
+            [language]
+        );
+
+
+    /*
+     * ---------------------------------------------------------------
+     * Logout
+     * ---------------------------------------------------------------
+     */
+
+    const handleLogout =
+        useCallback(() => {
+            closeMenu(
+                () => {
+                    Alert.alert(
+                        t.logoutTitle,
+                        t.logoutMessage,
+                        [
+                            {
+                                text:
+                                    t.cancel,
+                                style:
+                                    'cancel',
+                            },
+                            {
+                                text:
+                                    t.logoutConfirm,
+                                style:
+                                    'destructive',
+                                onPress:
+                                    async () => {
+                                        try {
+                                            await clearCurrentMember();
+                                        } catch (
+                                        error
+                                        ) {
+                                            console.error(
+                                                'Member logout error:',
+                                                error
+                                            );
+                                        } finally {
+                                            router.replace(
+                                                '/member/login'
+                                            );
+                                        }
+                                    },
+                            },
+                        ]
+                    );
+                }
+            );
+        }, [
+            closeMenu,
+            t.logoutTitle,
+            t.logoutMessage,
+            t.cancel,
+            t.logoutConfirm,
+        ]);
+
+
+    /*
+     * ---------------------------------------------------------------
+     * Load Pending Deposits
      * ---------------------------------------------------------------
      */
 
@@ -262,7 +890,7 @@ export default function PendingDepositScreen() {
                             result.message ||
                             (
                                 savedLanguage ===
-                                'en'
+                                    'en'
                                     ? 'Pending deposits could not be loaded.'
                                     : 'অপেক্ষমাণ জমার তথ্য লোড করা যায়নি।'
                             )
@@ -275,8 +903,25 @@ export default function PendingDepositScreen() {
                         return;
                     }
 
+                    const sortedRequests =
+                        [...result.requests].sort(
+                            (a, b) => {
+                                const dateA =
+                                    new Date(
+                                        a.requestDate
+                                    ).getTime();
+
+                                const dateB =
+                                    new Date(
+                                        b.requestDate
+                                    ).getTime();
+
+                                return dateA - dateB;
+                            }
+                        );
+
                     setRequests(
-                        result.requests
+                        sortedRequests
                     );
                 } catch (err) {
                     console.error(
@@ -305,7 +950,7 @@ export default function PendingDepositScreen() {
 
     /*
      * ---------------------------------------------------------------
-     * Refresh when screen gets focus
+     * Refresh When Screen Gets Focus
      * ---------------------------------------------------------------
      */
 
@@ -322,7 +967,7 @@ export default function PendingDepositScreen() {
 
     /*
      * ---------------------------------------------------------------
-     * Pull to refresh
+     * Pull To Refresh
      * ---------------------------------------------------------------
      */
 
@@ -338,174 +983,6 @@ export default function PendingDepositScreen() {
         }, [
             loadPendingDeposits,
         ]);
-
-
-    /*
-     * ---------------------------------------------------------------
-     * Back
-     * ---------------------------------------------------------------
-     */
-
-    const handleBack =
-        useCallback(() => {
-            router.back();
-        }, []);
-
-
-    /*
-     * ---------------------------------------------------------------
-     * Translation
-     * ---------------------------------------------------------------
-     */
-
-    const t =
-        language === 'en'
-            ? {
-                  title:
-                      'Pending Deposit',
-
-                  subtitle:
-                      'Deposit Requests',
-
-                  memberId:
-                      'Member ID',
-
-                  pendingRequests:
-                      'Pending Requests',
-
-                  request:
-                      'Request',
-
-                  requestId:
-                      'Request ID',
-
-                  shareCount:
-                      'Shares',
-
-                  weeklyAmount:
-                      'Weekly Amount',
-
-                  weeks:
-                      'Weeks',
-
-                  depositAmount:
-                      'Deposit Amount',
-
-                  paymentMethod:
-                      'Payment Method',
-
-                  senderNumber:
-                      'Sender Number',
-
-                  bkashCharge:
-                      'bKash Charge',
-
-                  payableAmount:
-                      'Payable Amount',
-
-                  requestDate:
-                      'Request Date',
-
-                  pending:
-                      'PENDING',
-
-                  noRequests:
-                      'No pending deposit requests',
-
-                  noRequestsDescription:
-                      'You currently have no deposit request waiting for Admin approval.',
-
-                  loadError:
-                      'Could not load pending deposits.',
-
-                  retry:
-                      'Retry',
-
-                  cash:
-                      'Cash',
-
-                  bkash:
-                      'bKash',
-
-                  weeksText:
-                      'weeks',
-
-                  shareText:
-                      'shares',
-              }
-            : {
-                  title:
-                      'অপেক্ষমাণ জমা',
-
-                  subtitle:
-                      'জমার অনুরোধ',
-
-                  memberId:
-                      'সদস্য ID',
-
-                  pendingRequests:
-                      'অপেক্ষমাণ অনুরোধ',
-
-                  request:
-                      'অনুরোধ',
-
-                  requestId:
-                      'অনুরোধ ID',
-
-                  shareCount:
-                      'শেয়ার',
-
-                  weeklyAmount:
-                      'সাপ্তাহিক জমা',
-
-                  weeks:
-                      'সপ্তাহ',
-
-                  depositAmount:
-                      'জমার পরিমাণ',
-
-                  paymentMethod:
-                      'পেমেন্ট পদ্ধতি',
-
-                  senderNumber:
-                      'প্রেরকের নম্বর',
-
-                  bkashCharge:
-                      'bKash চার্জ',
-
-                  payableAmount:
-                      'প্রদেয় পরিমাণ',
-
-                  requestDate:
-                      'অনুরোধের তারিখ',
-
-                  pending:
-                      'অপেক্ষমাণ',
-
-                  noRequests:
-                      'কোনো অপেক্ষমাণ জমা নেই',
-
-                  noRequestsDescription:
-                      'বর্তমানে Admin approval-এর জন্য আপনার কোনো জমার অনুরোধ অপেক্ষমাণ নেই।',
-
-                  loadError:
-                      'অপেক্ষমাণ জমার তথ্য লোড করা যায়নি।',
-
-                  retry:
-                      'আবার চেষ্টা করুন',
-
-                  cash:
-                      'Cash',
-
-                  bkash:
-                      'bKash',
-
-                  weeksText:
-                      'সপ্তাহ',
-
-                  shareText:
-                      'শেয়ার',
-              };
 
 
     /*
@@ -536,10 +1013,7 @@ export default function PendingDepositScreen() {
                             styles.loadingText
                         }
                     >
-                        {language ===
-                        'en'
-                            ? 'Loading...'
-                            : 'লোড হচ্ছে...'}
+                        {t.loading}
                     </Text>
                 </View>
             </SafeAreaView>
@@ -565,80 +1039,100 @@ export default function PendingDepositScreen() {
                 }
             >
 
-                {/* Header */}
+                {/* =====================================================
+                    HEADER
+                   ===================================================== */}
 
                 <View
                     style={
                         styles.header
                     }
                 >
-                    <Pressable
-                        onPress={
-                            handleBack
+                    <View
+                        style={
+                            styles.headerLeft
                         }
-                        style={({ pressed }) => [
-                            styles.backButton,
-                            pressed &&
-                                styles.pressed,
-                        ]}
                     >
-                        <Ionicons
-                            name="arrow-back"
-                            size={22}
-                            color="#0f172a"
-                        />
-                    </Pressable>
+                        {/* MENU BUTTON */}
+
+                        <Pressable
+                            onPress={
+                                openMenu
+                            }
+                            style={({ pressed }) => [
+                                styles.menuButton,
+                                pressed &&
+                                styles.menuButtonPressed,
+                            ]}
+                        >
+                            <Ionicons
+                                name="menu"
+                                size={25}
+                                color="#0f172a"
+                            />
+                        </Pressable>
+
+
+                        {/* BRAND */}
+
+                        <View>
+                            <Text
+                                style={
+                                    styles.appName
+                                }
+                            >
+                                {
+                                    t.appName
+                                }
+                            </Text>
+
+                            <Text
+                                style={
+                                    styles.appSubtitle
+                                }
+                            >
+                                {
+                                    t.appSubtitle
+                                }
+                            </Text>
+                        </View>
+                    </View>
+
+
+                    {/* MEMBER INFO */}
 
                     <View
                         style={
-                            styles.headerCenter
+                            styles.memberInfoHeader
                         }
                     >
                         <Text
                             style={
-                                styles.headerTitle
+                                styles.memberNameHeader
                             }
+                            numberOfLines={1}
                         >
-                            {t.title}
+                            {memberName ||
+                                '—'}
                         </Text>
 
                         <Text
                             style={
-                                styles.headerSubtitle
+                                styles.memberIdHeader
                             }
+                            numberOfLines={1}
                         >
-                            {t.subtitle}
+                            {t.memberId}:{' '}
+                            {memberId ||
+                                '—'}
                         </Text>
                     </View>
-
-                    <Pressable
-                        onPress={
-                            handleRefresh
-                        }
-                        disabled={
-                            refreshing
-                        }
-                        style={({ pressed }) => [
-                            styles.refreshButton,
-                            pressed &&
-                                styles.pressed,
-                        ]}
-                    >
-                        {refreshing ? (
-                            <ActivityIndicator
-                                size="small"
-                                color="#2563eb"
-                            />
-                        ) : (
-                            <Ionicons
-                                name="refresh"
-                                size={21}
-                                color="#2563eb"
-                            />
-                        )}
-                    </Pressable>
                 </View>
 
+
+                {/* =====================================================
+                    CONTENT
+                   ===================================================== */}
 
                 <ScrollView
                     showsVerticalScrollIndicator={
@@ -659,53 +1153,8 @@ export default function PendingDepositScreen() {
                     }
                 >
 
-                    {/* Member Info */}
 
-                    <View
-                        style={
-                            styles.memberCard
-                        }
-                    >
-                        <View
-                            style={
-                                styles.memberIcon
-                            }
-                        >
-                            <Ionicons
-                                name="person"
-                                size={20}
-                                color="#2563eb"
-                            />
-                        </View>
-
-                        <View
-                            style={
-                                styles.memberInfo
-                            }
-                        >
-                            <Text
-                                style={
-                                    styles.memberName
-                                }
-                            >
-                                {memberName ||
-                                    '—'}
-                            </Text>
-
-                            <Text
-                                style={
-                                    styles.memberId
-                                }
-                            >
-                                {t.memberId}:{' '}
-                                {memberId ||
-                                    '—'}
-                            </Text>
-                        </View>
-                    </View>
-
-
-                    {/* Count Card */}
+                    {/* COUNT CARD */}
 
                     <View
                         style={
@@ -744,13 +1193,15 @@ export default function PendingDepositScreen() {
                                     styles.countValue
                                 }
                             >
-                                {requests.length}
+                                {
+                                    requests.length
+                                }
                             </Text>
                         </View>
                     </View>
 
 
-                    {/* Error */}
+                    {/* ERROR */}
 
                     {!!error && (
                         <View
@@ -803,11 +1254,11 @@ export default function PendingDepositScreen() {
                     )}
 
 
-                    {/* Empty State */}
+                    {/* EMPTY STATE */}
 
                     {!error &&
                         requests.length ===
-                            0 && (
+                        0 && (
                             <View
                                 style={
                                     styles.emptyCard
@@ -848,7 +1299,7 @@ export default function PendingDepositScreen() {
                         )}
 
 
-                    {/* Requests */}
+                    {/* REQUESTS */}
 
                     {requests.map(
                         (
@@ -865,7 +1316,7 @@ export default function PendingDepositScreen() {
                                 }
                             >
 
-                                {/* Card Header */}
+                                {/* CARD HEADER */}
 
                                 <View
                                     style={
@@ -943,36 +1394,7 @@ export default function PendingDepositScreen() {
                                 </View>
 
 
-                                {/* Request ID */}
-
-                                <View
-                                    style={
-                                        styles.fullRow
-                                    }
-                                >
-                                    <Text
-                                        style={
-                                            styles.label
-                                        }
-                                    >
-                                        {
-                                            t.requestId
-                                        }
-                                    </Text>
-
-                                    <Text
-                                        style={
-                                            styles.value
-                                        }
-                                    >
-                                        {
-                                            request.requestId
-                                        }
-                                    </Text>
-                                </View>
-
-
-                                {/* Details Grid */}
+                                {/* DETAILS GRID */}
 
                                 <View
                                     style={
@@ -1009,6 +1431,7 @@ export default function PendingDepositScreen() {
                                         </Text>
                                     </View>
 
+
                                     <View
                                         style={
                                             styles.detailItem
@@ -1034,6 +1457,7 @@ export default function PendingDepositScreen() {
                                             )}
                                         </Text>
                                     </View>
+
 
                                     <View
                                         style={
@@ -1064,6 +1488,7 @@ export default function PendingDepositScreen() {
                                         </Text>
                                     </View>
 
+
                                     <View
                                         style={
                                             styles.detailItem
@@ -1093,7 +1518,7 @@ export default function PendingDepositScreen() {
                                 </View>
 
 
-                                {/* Payment Method */}
+                                {/* PAYMENT METHOD */}
 
                                 <View
                                     style={
@@ -1108,7 +1533,7 @@ export default function PendingDepositScreen() {
                                         <Ionicons
                                             name={
                                                 request.paymentMethod ===
-                                                'bkash'
+                                                    'bkash'
                                                     ? 'phone-portrait-outline'
                                                     : 'cash-outline'
                                             }
@@ -1139,7 +1564,7 @@ export default function PendingDepositScreen() {
                                         >
                                             {
                                                 request.paymentMethod ===
-                                                'bkash'
+                                                    'bkash'
                                                     ? t.bkash
                                                     : t.cash
                                             }
@@ -1148,7 +1573,7 @@ export default function PendingDepositScreen() {
                                 </View>
 
 
-                                {/* Sender Number */}
+                                {/* SENDER NUMBER */}
 
                                 {request.paymentMethod ===
                                     'bkash' &&
@@ -1199,12 +1624,12 @@ export default function PendingDepositScreen() {
                                     )}
 
 
-                                {/* Charge */}
+                                {/* BKASH CHARGE */}
 
                                 {request.paymentMethod ===
                                     'bkash' &&
                                     request.bkashCharge >
-                                        0 && (
+                                    0 && (
                                         <View
                                             style={
                                                 styles.chargeRow
@@ -1233,7 +1658,7 @@ export default function PendingDepositScreen() {
                                     )}
 
 
-                                {/* Payable */}
+                                {/* PAYABLE */}
 
                                 <View
                                     style={
@@ -1264,7 +1689,7 @@ export default function PendingDepositScreen() {
                                 </View>
 
 
-                                {/* Request Date */}
+                                {/* REQUEST DATE */}
 
                                 <View
                                     style={
@@ -1303,6 +1728,402 @@ export default function PendingDepositScreen() {
                     />
 
                 </ScrollView>
+
+
+                {/* =====================================================
+                    SIDE MENU
+                   ===================================================== */}
+
+                {menuMounted && (
+                    <View
+                        style={
+                            styles.menuOverlay
+                        }
+                    >
+
+                        {/* OVERLAY */}
+
+                        <Animated.View
+                            pointerEvents={
+                                menuOpen
+                                    ? 'auto'
+                                    : 'none'
+                            }
+                            style={[
+                                styles.overlayBackground,
+                                {
+                                    opacity:
+                                        overlayOpacity,
+                                },
+                            ]}
+                        >
+                            <Pressable
+                                style={
+                                    styles.overlayPressable
+                                }
+                                onPress={() =>
+                                    closeMenu()
+                                }
+                            />
+                        </Animated.View>
+
+
+                        {/* DRAWER */}
+
+                        <Animated.View
+                            style={[
+                                styles.drawer,
+                                {
+                                    transform: [
+                                        {
+                                            translateX:
+                                                drawerTranslateX,
+                                        },
+                                    ],
+                                },
+                            ]}
+                        >
+                            <SafeAreaView
+                                style={
+                                    styles.drawerSafeArea
+                                }
+                                edges={[
+                                    'bottom',
+                                ]}
+                            >
+
+                                {/* DRAWER HEADER */}
+
+                                <View
+                                    style={
+                                        styles.drawerHeader
+                                    }
+                                >
+                                    <View
+                                        style={
+                                            styles.drawerBrand
+                                        }
+                                    >
+                                        <View
+                                            style={
+                                                styles.drawerLogo
+                                            }
+                                        >
+                                            <Text
+                                                style={
+                                                    styles.takaIcon
+                                                }
+                                            >
+                                                ৳
+                                            </Text>
+                                        </View>
+
+                                        <View>
+                                            <Text
+                                                style={
+                                                    styles.drawerAppName
+                                                }
+                                            >
+                                                {
+                                                    t.appName
+                                                }
+                                            </Text>
+
+                                            <Text
+                                                style={
+                                                    styles.drawerSubtitle
+                                                }
+                                            >
+                                                {
+                                                    t.memberPanel
+                                                }
+                                            </Text>
+                                        </View>
+                                    </View>
+
+
+                                    <Pressable
+                                        onPress={() =>
+                                            closeMenu()
+                                        }
+                                        style={({ pressed }) => [
+                                            styles.closeButton,
+                                            pressed &&
+                                            styles.closeButtonPressed,
+                                        ]}
+                                    >
+                                        <Ionicons
+                                            name="close"
+                                            size={23}
+                                            color="#0f172a"
+                                        />
+                                    </Pressable>
+                                </View>
+
+
+                                {/* MENU */}
+
+                                <ScrollView
+                                    showsVerticalScrollIndicator={
+                                        false
+                                    }
+                                    contentContainerStyle={
+                                        styles.menuScroll
+                                    }
+                                >
+
+                                    {/* DASHBOARD */}
+
+                                    <View
+                                        style={
+                                            styles.firstMenuItem
+                                        }
+                                    >
+                                        <MenuItem
+                                            icon="grid-outline"
+                                            label={
+                                                t.dashboard
+                                            }
+                                            onPress={() =>
+                                                handleMenuPress(
+                                                    '/member/dashboard'
+                                                )
+                                            }
+                                        />
+                                    </View>
+
+
+                                    {/* PROFILE */}
+
+                                    <MenuItem
+                                        icon="person-outline"
+                                        label={
+                                            t.profile
+                                        }
+                                        onPress={() =>
+                                            handleMenuPress(
+                                                '/member/profile'
+                                            )
+                                        }
+                                    />
+
+
+                                    {/* CHANGE GMAIL */}
+
+                                    <MenuItem
+                                        icon="mail-outline"
+                                        label={
+                                            t.changeGmail
+                                        }
+                                        onPress={() =>
+                                            handleMenuPress(
+                                                '/member/change-email'
+                                            )
+                                        }
+                                    />
+
+
+                                    {/* CHANGE PIN */}
+
+                                    <MenuItem
+                                        icon="lock-closed-outline"
+                                        label={
+                                            t.changePin
+                                        }
+                                        onPress={() =>
+                                            handleMenuPress(
+                                                '/member/change-pin'
+                                            )
+                                        }
+                                    />
+
+
+                                    <MenuDivider />
+
+
+                                    {/* WEEKLY DEPOSIT */}
+
+                                    <MenuItem
+                                        icon="cash-outline"
+                                        label={
+                                            t.weeklyDeposit
+                                        }
+                                        onPress={() =>
+                                            handleMenuPress(
+                                                '/member/deposit'
+                                            )
+                                        }
+                                    />
+
+
+                                    {/* PENDING DEPOSIT - ACTIVE */}
+
+                                    <MenuItem
+                                        icon="hourglass-outline"
+                                        label={
+                                            t.pendingDeposit
+                                        }
+                                        active
+                                        onPress={() =>
+                                            closeMenu()
+                                        }
+                                    />
+
+
+                                    {/* WEEKLY HISTORY */}
+
+                                    <MenuItem
+                                        icon="time-outline"
+                                        label={
+                                            t.weeklyHistory
+                                        }
+                                        onPress={() =>
+                                            handleMenuPress(
+                                                '/member/deposit-history'
+                                            )
+                                        }
+                                    />
+
+
+                                    <MenuDivider />
+
+
+                                    {/* LANGUAGE */}
+
+                                    <View
+                                        style={
+                                            styles.languageMenu
+                                        }
+                                    >
+                                        <View
+                                            style={
+                                                styles.menuItemLeft
+                                            }
+                                        >
+                                            <Ionicons
+                                                name="language-outline"
+                                                size={20}
+                                                color="#475569"
+                                            />
+
+                                            <Text
+                                                style={
+                                                    styles.menuItemText
+                                                }
+                                            >
+                                                {
+                                                    t.language
+                                                }
+                                            </Text>
+                                        </View>
+
+
+                                        <View
+                                            style={
+                                                styles.languageOptions
+                                            }
+                                        >
+
+                                            {/* BANGLA */}
+
+                                            <Pressable
+                                                onPress={() =>
+                                                    changeLanguage(
+                                                        'bn'
+                                                    )
+                                                }
+                                                style={
+                                                    language ===
+                                                        'bn'
+                                                        ? styles.languageOptionActive
+                                                        : styles.languageOption
+                                                }
+                                            >
+                                                <Text
+                                                    style={
+                                                        language ===
+                                                            'bn'
+                                                            ? styles.languageOptionActiveText
+                                                            : styles.languageOptionText
+                                                    }
+                                                >
+                                                    {
+                                                        t.bangla
+                                                    }
+                                                </Text>
+                                            </Pressable>
+
+
+                                            {/* ENGLISH */}
+
+                                            <Pressable
+                                                onPress={() =>
+                                                    changeLanguage(
+                                                        'en'
+                                                    )
+                                                }
+                                                style={
+                                                    language ===
+                                                        'en'
+                                                        ? styles.languageOptionActive
+                                                        : styles.languageOption
+                                                }
+                                            >
+                                                <Text
+                                                    style={
+                                                        language ===
+                                                            'en'
+                                                            ? styles.languageOptionActiveText
+                                                            : styles.languageOptionText
+                                                    }
+                                                >
+                                                    EN
+                                                </Text>
+                                            </Pressable>
+
+                                        </View>
+                                    </View>
+
+
+                                    <MenuDivider />
+
+
+                                    {/* LOGOUT */}
+
+                                    <Pressable
+                                        onPress={
+                                            handleLogout
+                                        }
+                                        style={({ pressed }) => [
+                                            styles.logoutButton,
+                                            pressed &&
+                                            styles.logoutButtonPressed,
+                                        ]}
+                                    >
+                                        <Ionicons
+                                            name="log-out-outline"
+                                            size={21}
+                                            color="#dc2626"
+                                        />
+
+                                        <Text
+                                            style={
+                                                styles.logoutText
+                                            }
+                                        >
+                                            {
+                                                t.logout
+                                            }
+                                        </Text>
+                                    </Pressable>
+
+                                </ScrollView>
+
+                            </SafeAreaView>
+                        </Animated.View>
+                    </View>
+                )}
+
             </View>
         </SafeAreaView>
     );
@@ -1317,6 +2138,13 @@ export default function PendingDepositScreen() {
 
 const styles =
     StyleSheet.create({
+
+        /*
+         * ---------------------------------------------------------------
+         * Main
+         * ---------------------------------------------------------------
+         */
+
         safeArea: {
             flex: 1,
             backgroundColor:
@@ -1329,33 +2157,117 @@ const styles =
                 '#f6f8fb',
         },
 
+
+        /*
+         * ---------------------------------------------------------------
+         * Header
+         * ---------------------------------------------------------------
+         */
+
         header: {
-            minHeight: 72,
-            paddingHorizontal: 16,
-            flexDirection:
-                'row',
-            alignItems:
-                'center',
+            minHeight: 76,
+            paddingHorizontal: 18,
+            paddingVertical: 12,
             backgroundColor:
                 '#ffffff',
             borderBottomWidth: 1,
             borderBottomColor:
                 '#e2e8f0',
+            flexDirection:
+                'row',
+            alignItems:
+                'center',
+            justifyContent:
+                'space-between',
         },
 
-        backButton: {
+        headerLeft: {
+            flexDirection:
+                'row',
+            alignItems:
+                'center',
+            flex: 1,
+        },
+
+        menuButton: {
             width: 42,
             height: 42,
-            borderRadius: 14,
+            borderRadius: 11,
+            backgroundColor:
+                '#f1f5f9',
             alignItems:
                 'center',
             justifyContent:
                 'center',
-            backgroundColor:
-                '#f8fafc',
-            borderWidth: 1,
-            borderColor:
-                '#e2e8f0',
+            marginRight: 11,
+        },
+
+        menuButtonPressed: {
+            opacity: 0.65,
+        },
+
+        appName: {
+            fontSize: 16,
+            fontWeight: '800',
+            color: '#0f172a',
+        },
+
+        appSubtitle: {
+            marginTop: 2,
+            fontSize: 10,
+            color: '#64748b',
+        },
+
+        memberInfoHeader: {
+            maxWidth: 145,
+            alignItems:
+                'flex-end',
+        },
+
+        memberNameHeader: {
+            fontSize: 13,
+            fontWeight: '800',
+            color: '#0f172a',
+        },
+
+        memberIdHeader: {
+            marginTop: 2,
+            fontSize: 10,
+            color: '#64748b',
+        },
+
+
+        /*
+         * ---------------------------------------------------------------
+         * Content
+         * ---------------------------------------------------------------
+         */
+
+        scrollContent: {
+            padding: 16,
+        },
+
+        pageHeader: {
+            flexDirection:
+                'row',
+            alignItems:
+                'center',
+            justifyContent:
+                'space-between',
+            marginBottom: 14,
+        },
+
+        pageTitle: {
+            fontSize: 20,
+            fontWeight: '800',
+            color: '#0f172a',
+        },
+
+        pageSubtitle: {
+            marginTop: 3,
+            fontSize: 12,
+            fontWeight: '500',
+            color: '#64748b',
         },
 
         refreshButton: {
@@ -1377,27 +2289,12 @@ const styles =
             opacity: 0.7,
         },
 
-        headerCenter: {
-            flex: 1,
-            paddingHorizontal: 12,
-        },
 
-        headerTitle: {
-            fontSize: 18,
-            fontWeight: '800',
-            color: '#0f172a',
-        },
-
-        headerSubtitle: {
-            marginTop: 2,
-            fontSize: 12,
-            fontWeight: '500',
-            color: '#64748b',
-        },
-
-        scrollContent: {
-            padding: 16,
-        },
+        /*
+         * ---------------------------------------------------------------
+         * Member Card
+         * ---------------------------------------------------------------
+         */
 
         memberCard: {
             flexDirection:
@@ -1444,6 +2341,13 @@ const styles =
             fontWeight: '500',
         },
 
+
+        /*
+         * ---------------------------------------------------------------
+         * Count Card
+         * ---------------------------------------------------------------
+         */
+
         countCard: {
             flexDirection:
                 'row',
@@ -1487,6 +2391,13 @@ const styles =
             fontWeight: '800',
             color: '#0f172a',
         },
+
+
+        /*
+         * ---------------------------------------------------------------
+         * Request Card
+         * ---------------------------------------------------------------
+         */
 
         requestCard: {
             backgroundColor:
@@ -1547,6 +2458,13 @@ const styles =
             fontWeight: '600',
         },
 
+
+        /*
+         * ---------------------------------------------------------------
+         * Pending Badge
+         * ---------------------------------------------------------------
+         */
+
         pendingBadge: {
             flexDirection:
                 'row',
@@ -1576,6 +2494,13 @@ const styles =
             fontWeight: '800',
             color: '#c2410c',
         },
+
+
+        /*
+         * ---------------------------------------------------------------
+         * Request Details
+         * ---------------------------------------------------------------
+         */
 
         fullRow: {
             paddingVertical: 10,
@@ -1614,6 +2539,13 @@ const styles =
             fontWeight: '700',
         },
 
+
+        /*
+         * ---------------------------------------------------------------
+         * Info Row
+         * ---------------------------------------------------------------
+         */
+
         infoRow: {
             flexDirection:
                 'row',
@@ -1642,6 +2574,13 @@ const styles =
             marginLeft: 10,
         },
 
+
+        /*
+         * ---------------------------------------------------------------
+         * Charge
+         * ---------------------------------------------------------------
+         */
+
         chargeRow: {
             flexDirection:
                 'row',
@@ -1668,6 +2607,13 @@ const styles =
             color: '#c2410c',
             fontWeight: '800',
         },
+
+
+        /*
+         * ---------------------------------------------------------------
+         * Payable
+         * ---------------------------------------------------------------
+         */
 
         payableRow: {
             flexDirection:
@@ -1698,6 +2644,13 @@ const styles =
             fontWeight: '900',
         },
 
+
+        /*
+         * ---------------------------------------------------------------
+         * Date
+         * ---------------------------------------------------------------
+         */
+
         dateRow: {
             flexDirection:
                 'row',
@@ -1713,6 +2666,13 @@ const styles =
             color: '#64748b',
             fontWeight: '500',
         },
+
+
+        /*
+         * ---------------------------------------------------------------
+         * Empty
+         * ---------------------------------------------------------------
+         */
 
         emptyCard: {
             alignItems:
@@ -1758,6 +2718,13 @@ const styles =
                 'center',
         },
 
+
+        /*
+         * ---------------------------------------------------------------
+         * Error
+         * ---------------------------------------------------------------
+         */
+
         errorCard: {
             flexDirection:
                 'row',
@@ -1800,6 +2767,13 @@ const styles =
             fontWeight: '800',
         },
 
+
+        /*
+         * ---------------------------------------------------------------
+         * Loading
+         * ---------------------------------------------------------------
+         */
+
         loadingContainer: {
             flex: 1,
             alignItems:
@@ -1816,6 +2790,299 @@ const styles =
             color: '#64748b',
             fontWeight: '600',
         },
+
+
+        /*
+         * ---------------------------------------------------------------
+         * Drawer
+         * ---------------------------------------------------------------
+         */
+
+        menuOverlay: {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 1000,
+            elevation: 1000,
+        },
+
+        overlayBackground: {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor:
+                'rgba(15, 23, 42, 0.42)',
+        },
+
+        overlayPressable: {
+            flex: 1,
+        },
+
+        drawer: {
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            left: 0,
+            width: 315,
+            maxWidth: '86%',
+            backgroundColor:
+                '#ffffff',
+            shadowColor:
+                '#000',
+            shadowOpacity:
+                0.16,
+            shadowRadius:
+                15,
+            shadowOffset: {
+                width: 4,
+                height: 0,
+            },
+            elevation: 12,
+        },
+
+        drawerSafeArea: {
+            flex: 1,
+        },
+
+        drawerHeader: {
+            minHeight: 76,
+            paddingHorizontal: 17,
+            borderBottomWidth: 1,
+            borderBottomColor:
+                '#e2e8f0',
+            flexDirection:
+                'row',
+            alignItems:
+                'center',
+            justifyContent:
+                'space-between',
+        },
+
+        drawerBrand: {
+            flexDirection:
+                'row',
+            alignItems:
+                'center',
+        },
+
+        drawerLogo: {
+            width: 43,
+            height: 43,
+            borderRadius: 12,
+            backgroundColor:
+                '#0f172a',
+            alignItems:
+                'center',
+            justifyContent:
+                'center',
+            marginRight: 10,
+        },
+
+        takaIcon: {
+            fontSize: 24,
+            fontWeight: '900',
+            color: '#ffffff',
+            lineHeight: 28,
+        },
+
+        drawerAppName: {
+            fontSize: 14,
+            fontWeight: '800',
+            color: '#0f172a',
+        },
+
+        drawerSubtitle: {
+            marginTop: 2,
+            fontSize: 10,
+            color: '#64748b',
+        },
+
+        closeButton: {
+            width: 38,
+            height: 38,
+            borderRadius: 10,
+            backgroundColor:
+                '#f1f5f9',
+            alignItems:
+                'center',
+            justifyContent:
+                'center',
+        },
+
+        closeButtonPressed: {
+            opacity: 0.65,
+        },
+
+        menuScroll: {
+            paddingHorizontal: 9,
+            paddingBottom: 15,
+        },
+
+        firstMenuItem: {
+            marginTop: 7,
+        },
+
+
+        /*
+         * ---------------------------------------------------------------
+         * Menu Items
+         * ---------------------------------------------------------------
+         */
+
+        menuItem: {
+            minHeight: 46,
+            borderRadius: 10,
+            paddingHorizontal: 12,
+            flexDirection:
+                'row',
+            alignItems:
+                'center',
+            marginBottom: 2,
+            overflow: 'hidden',
+        },
+
+        menuItemActive: {
+            backgroundColor:
+                '#0f172a',
+        },
+
+        menuItemIconContainer: {
+            width: 20,
+            height: 20,
+            alignItems:
+                'center',
+            justifyContent:
+                'center',
+        },
+
+        menuItemText: {
+            marginLeft: 12,
+            fontSize: 12,
+            fontWeight: '700',
+            flex: 1,
+            color: '#334155',
+        },
+
+        menuItemTextActive: {
+            color: '#ffffff',
+        },
+
+
+        /*
+         * ---------------------------------------------------------------
+         * Divider
+         * ---------------------------------------------------------------
+         */
+
+        menuDivider: {
+            height: 1,
+            backgroundColor:
+                '#e2e8f0',
+            marginVertical: 10,
+            marginHorizontal: 7,
+        },
+
+
+        /*
+         * ---------------------------------------------------------------
+         * Language
+         * ---------------------------------------------------------------
+         */
+
+        languageMenu: {
+            minHeight: 55,
+            paddingHorizontal: 12,
+            flexDirection:
+                'row',
+            alignItems:
+                'center',
+            justifyContent:
+                'space-between',
+        },
+
+        menuItemLeft: {
+            flexDirection:
+                'row',
+            alignItems:
+                'center',
+            flex: 1,
+        },
+
+        languageOptions: {
+            flexDirection:
+                'row',
+            padding: 3,
+            borderRadius: 9,
+            backgroundColor:
+                '#f1f5f9',
+        },
+
+        languageOption: {
+            paddingHorizontal: 8,
+            paddingVertical: 6,
+            borderRadius: 7,
+        },
+
+        languageOptionActive: {
+            paddingHorizontal: 8,
+            paddingVertical: 5,
+            borderRadius: 7,
+            backgroundColor:
+                '#0f172a',
+        },
+
+        languageOptionText: {
+            fontSize: 9,
+            fontWeight: '800',
+            color: '#64748b',
+        },
+
+        languageOptionActiveText: {
+            fontSize: 9,
+            fontWeight: '800',
+            color: '#ffffff',
+        },
+
+
+        /*
+         * ---------------------------------------------------------------
+         * Logout
+         * ---------------------------------------------------------------
+         */
+
+        logoutButton: {
+            minHeight: 46,
+            borderRadius: 10,
+            paddingHorizontal: 12,
+            flexDirection:
+                'row',
+            alignItems:
+                'center',
+            backgroundColor:
+                '#fef2f2',
+        },
+
+        logoutButtonPressed: {
+            opacity: 0.65,
+        },
+
+        logoutText: {
+            marginLeft: 12,
+            fontSize: 12,
+            fontWeight: '800',
+            color: '#dc2626',
+        },
+
+
+        /*
+         * ---------------------------------------------------------------
+         * Bottom Space
+         * ---------------------------------------------------------------
+         */
 
         bottomSpace: {
             height: 30,

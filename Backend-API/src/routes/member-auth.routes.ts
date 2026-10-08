@@ -13,7 +13,17 @@ import {
   createPendingDeposit,
   getMemberPendingDeposits,
   getMemberDepositHistory,
+  sendMemberPinResetOTP,
+  verifyMemberPinResetOTP,
+  resendMemberPinResetOTP,
+  resetMemberPin,
 } from "../services/member.service";
+
+import {
+  verifyMemberEmailChangePin,
+  sendMemberEmailChangeOTP,
+  verifyMemberEmailChangeOTP,
+} from "../services/member-email-change.service";
 
 import {
   verifyPin,
@@ -285,6 +295,9 @@ router.post(
           phone:
             member.phone,
 
+          email: 
+            member.email,
+
           joinDate:
             member.joinDate,
 
@@ -391,17 +404,17 @@ router.post(
             ? 404
             : result.code ===
               "ALREADY_REGISTERED"
-            ? 409
-            : result.code ===
-              "EMAIL_ALREADY_USED"
-            ? 409
-            : result.code ===
-              "EMAIL_NOT_CONFIGURED"
-            ? 503
-            : result.code ===
-              "EMAIL_SEND_FAILED"
-            ? 502
-            : 400;
+              ? 409
+              : result.code ===
+                "EMAIL_ALREADY_USED"
+                ? 409
+                : result.code ===
+                  "EMAIL_NOT_CONFIGURED"
+                  ? 503
+                  : result.code ===
+                    "EMAIL_SEND_FAILED"
+                    ? 502
+                    : 400;
 
         return res.status(
           statusCode
@@ -543,14 +556,14 @@ router.post(
             ? 404
             : result.code ===
               "ALREADY_REGISTERED"
-            ? 409
-            : result.code ===
-              "OTP_TOO_MANY_ATTEMPTS"
-            ? 429
-            : result.code ===
-              "OTP_NOT_FOUND"
-            ? 404
-            : 400;
+              ? 409
+              : result.code ===
+                "OTP_TOO_MANY_ATTEMPTS"
+                ? 429
+                : result.code ===
+                  "OTP_NOT_FOUND"
+                  ? 404
+                  : 400;
 
         return res.status(
           statusCode
@@ -661,14 +674,14 @@ router.post(
             ? 404
             : result.code ===
               "OTP_RESEND_COOLDOWN"
-            ? 429
-            : result.code ===
-              "OTP_EXPIRED"
-            ? 400
-            : result.code ===
-              "EMAIL_SEND_FAILED"
-            ? 502
-            : 400;
+              ? 429
+              : result.code ===
+                "OTP_EXPIRED"
+                ? 400
+                : result.code ===
+                  "EMAIL_SEND_FAILED"
+                  ? 502
+                  : 400;
 
         return res.status(
           statusCode
@@ -915,7 +928,7 @@ router.post(
       const paymentMethod =
         String(
           req.body?.paymentMethod ??
-            ""
+          ""
         )
           .trim()
           .toLowerCase();
@@ -923,7 +936,7 @@ router.post(
       const senderNumber =
         String(
           req.body?.senderNumber ??
-            ""
+          ""
         ).trim();
 
       /*
@@ -966,9 +979,9 @@ router.post(
 
       if (
         paymentMethod !==
-          "cash" &&
+        "cash" &&
         paymentMethod !==
-          "bkash"
+        "bkash"
       ) {
         return res.status(400).json({
           success: false,
@@ -988,8 +1001,8 @@ router.post(
           memberId,
           weeks,
           paymentMethod as
-            | "cash"
-            | "bkash",
+          | "cash"
+          | "bkash",
           senderNumber
         );
 
@@ -1002,8 +1015,8 @@ router.post(
             ? 404
             : result.code ===
               "INACTIVE_MEMBER"
-            ? 403
-            : 400;
+              ? 403
+              : 400;
 
         return res.status(
           statusCode
@@ -1027,7 +1040,7 @@ router.post(
 
         message:
           paymentMethod ===
-          "bkash"
+            "bkash"
             ? "আপনার bKash payment request Admin approval-এর জন্য পাঠানো হয়েছে।"
             : "আপনার deposit request Admin approval-এর জন্য পাঠানো হয়েছে।",
 
@@ -1341,6 +1354,448 @@ router.put(
         success: false,
         message:
           "PIN পরিবর্তন করা যায়নি",
+      });
+    }
+  }
+);
+
+router.post(
+  "/change-email/verify-pin",
+  async (req, res) => {
+    try {
+      const {
+        memberId,
+        pin,
+      } = req.body;
+
+      if (
+        !memberId ||
+        !pin
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Member ID and PIN are required",
+        });
+      }
+
+      const result =
+        await verifyMemberEmailChangePin(
+          memberId,
+          pin
+        );
+
+      if (!result.success) {
+        switch (result.reason) {
+          case "NOT_FOUND":
+            return res.status(404).json({
+              success: false,
+              message:
+                "Member not found",
+            });
+
+          case "INACTIVE":
+            return res.status(403).json({
+              success: false,
+              message:
+                "Member account is inactive",
+            });
+
+          case "NO_PIN":
+            return res.status(400).json({
+              success: false,
+              message:
+                "PIN is not set",
+            });
+
+          case "INVALID_PIN":
+            return res.status(401).json({
+              success: false,
+              message:
+                "Invalid PIN",
+            });
+
+          default:
+            return res.status(400).json({
+              success: false,
+              message:
+                "Unable to verify PIN",
+            });
+        }
+      }
+
+      return res.json({
+        success: true,
+        authorizationToken:
+          result.authorizationToken,
+        expiresIn:
+          result.expiresIn,
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Member email change PIN verification error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Internal server error",
+      });
+    }
+  }
+);
+
+
+router.post(
+  "/change-email/send-otp",
+  async (req, res) => {
+    try {
+      const {
+        authorizationToken,
+        newEmail,
+      } = req.body;
+
+      if (
+        !authorizationToken ||
+        !newEmail
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Authorization token and new email are required",
+        });
+      }
+
+      const result =
+        await sendMemberEmailChangeOTP(
+          authorizationToken,
+          newEmail
+        );
+
+      if (!result.success) {
+        switch (result.reason) {
+          case "INVALID_TOKEN":
+            return res.status(401).json({
+              success: false,
+              message:
+                "Authorization expired or invalid",
+            });
+
+          case "NOT_FOUND":
+            return res.status(404).json({
+              success: false,
+              message:
+                "Member not found",
+            });
+
+          case "INACTIVE":
+            return res.status(403).json({
+              success: false,
+              message:
+                "Member account is inactive",
+            });
+
+          case "INVALID_EMAIL":
+            return res.status(400).json({
+              success: false,
+              message:
+                "Please enter a valid Gmail address",
+            });
+
+          case "EMAIL_ALREADY_EXISTS":
+            return res.status(409).json({
+              success: false,
+              message:
+                "This Gmail is already used by another member",
+            });
+
+          case "ALREADY_CURRENT_EMAIL":
+            return res.status(400).json({
+              success: false,
+              message:
+                "This is already your current Gmail",
+            });
+
+          case "COOLDOWN":
+            return res.status(429).json({
+              success: false,
+              message:
+                "Please wait before requesting another OTP",
+              code: "OTP_COOLDOWN",
+              resendAfter:
+                result.resendAfter ?? 60,
+            });
+
+          case "EMAIL_SEND_FAILED":
+            return res.status(500).json({
+              success: false,
+              message:
+                "Failed to send OTP email",
+            });
+
+          default:
+            return res.status(400).json({
+              success: false,
+              message:
+                "Unable to send OTP",
+            });
+        }
+      }
+
+      return res.json({
+        success: true,
+        expiresIn:
+          result.expiresIn,
+        resendAfter:
+          result.resendAfter,
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Member email change OTP send error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Internal server error",
+      });
+    }
+  }
+);
+
+
+router.post(
+  "/change-email/verify-otp",
+  async (req, res) => {
+    try {
+      const {
+        authorizationToken,
+        otp,
+      } = req.body;
+
+      if (
+        !authorizationToken ||
+        !otp
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Authorization token and OTP are required",
+        });
+      }
+
+      const result =
+        await verifyMemberEmailChangeOTP(
+          authorizationToken,
+          otp
+        );
+
+      if (!result.success) {
+        switch (result.reason) {
+          case "INVALID_TOKEN":
+            return res.status(401).json({
+              success: false,
+              message:
+                "Authorization expired or invalid",
+            });
+
+          case "NOT_FOUND":
+            return res.status(404).json({
+              success: false,
+              message:
+                "Member not found",
+            });
+
+          case "INACTIVE":
+            return res.status(403).json({
+              success: false,
+              message:
+                "Member account is inactive",
+            });
+
+          case "NO_OTP":
+            return res.status(400).json({
+              success: false,
+              message:
+                "No OTP request found",
+            });
+
+          case "EXPIRED":
+            return res.status(400).json({
+              success: false,
+              message:
+                "OTP has expired",
+            });
+
+          case "INVALID_OTP":
+            return res.status(400).json({
+              success: false,
+              message:
+                "Invalid OTP",
+            });
+
+          case "MAX_ATTEMPTS":
+            return res.status(429).json({
+              success: false,
+              message:
+                "Maximum OTP attempts exceeded",
+            });
+
+          case "UPDATE_FAILED":
+            return res.status(500).json({
+              success: false,
+              message:
+                "Failed to update Gmail",
+            });
+
+          default:
+            return res.status(400).json({
+              success: false,
+              message:
+                "Unable to verify OTP",
+            });
+        }
+      }
+
+      return res.json({
+        success: true,
+        message:
+          "Gmail changed successfully",
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Member email change OTP verification error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Internal server error",
+      });
+    }
+  }
+);
+
+router.post(
+  "/forgot-pin/send-otp",
+  async (req, res) => {
+    try {
+      const {
+        phone,
+        language = "bn",
+      } = req.body;
+
+      const result =
+        await sendMemberPinResetOTP(
+          phone,
+          language === "en"
+            ? "en"
+            : "bn"
+        );
+
+      return res.json(result);
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message:
+          error?.message ||
+          "Failed to send OTP",
+      });
+    }
+  }
+);
+
+router.post(
+  "/forgot-pin/verify-otp",
+  async (req, res) => {
+    try {
+      const {
+        phone,
+        otp,
+      } = req.body;
+
+      const result =
+        await verifyMemberPinResetOTP(
+          phone,
+          otp
+        );
+
+      return res.json(result);
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message:
+          error?.message ||
+          "Invalid OTP",
+      });
+    }
+  }
+);
+
+router.post(
+  "/forgot-pin/resend-otp",
+  async (req, res) => {
+    try {
+      const {
+        phone,
+        language = "bn",
+      } = req.body;
+
+      const result =
+        await resendMemberPinResetOTP(
+          phone,
+          language === "en"
+            ? "en"
+            : "bn"
+        );
+
+      return res.json(result);
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message:
+          error?.message ||
+          "Failed to resend OTP",
+      });
+    }
+  }
+);
+
+router.post(
+  "/forgot-pin/reset",
+  async (req, res) => {
+    try {
+      const {
+        phone,
+        resetToken,
+        newPin,
+        confirmPin,
+      } = req.body;
+
+      const result =
+        await resetMemberPin(
+          phone,
+          resetToken,
+          newPin,
+          confirmPin
+        );
+
+      return res.json(result);
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message:
+          error?.message ||
+          "Failed to reset PIN",
       });
     }
   }

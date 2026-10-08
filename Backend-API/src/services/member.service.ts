@@ -7,6 +7,7 @@ import nodemailer from "nodemailer";
 import {
   randomInt,
   createHash,
+  randomBytes,
 } from "crypto";
 
 import {
@@ -24,6 +25,7 @@ export interface Member {
   memberId: string;
   memberName: string;
   phone: string;
+  email: string;
   joinDate: string;
   currentShareCount: number;
   currentWeeklyAmount: number;
@@ -137,6 +139,7 @@ export interface MemberDashboardData {
     memberId: string;
     memberName: string;
     phone: string;
+    email: string;
     joinDate: string;
     currentShareCount: number;
     currentWeeklyAmount: number;
@@ -870,6 +873,11 @@ export async function getAllMembers(): Promise<
           row[2] ?? ""
         ).trim(),
 
+      email:
+        String(
+          row[10] ?? ""
+        ).trim(),
+
       joinDate:
         String(
           row[3] ?? ""
@@ -925,7 +933,7 @@ export async function findMemberById(
 > {
   const rows =
     await getSheetValues(
-      "Members!A:J"
+      "Members!A:K"
     );
 
   if (
@@ -1005,6 +1013,11 @@ export async function findMemberById(
     updatedAt:
       String(
         row[9] ?? ""
+      ).trim(),
+
+    email:
+      String(
+        row[10] ?? ""
       ).trim(),
   };
 }
@@ -1155,7 +1168,7 @@ export async function getMemberPendingDeposits(
 
         paymentMethod:
           paymentMethod ===
-          "bkash"
+            "bkash"
             ? "bkash"
             : "cash",
 
@@ -1245,9 +1258,9 @@ export async function getMemberDepositHistory(
 }> {
   try {
     const rows =
-  await getSheetValues(
-    "Pending Deposits!A:P"
-  );
+      await getSheetValues(
+        "Pending Deposits!A:P"
+      );
 
     const normalizedMemberId =
       String(memberId ?? "").trim();
@@ -1347,7 +1360,7 @@ export async function getMemberDepositHistory(
             String(
               row[9] ?? "cash"
             ).trim().toLowerCase() ===
-            "bkash"
+              "bkash"
               ? "bkash"
               : "cash",
 
@@ -1707,7 +1720,7 @@ export async function createPendingDeposit(
     },
   };
 
-  
+
 }
 
 /*
@@ -1902,6 +1915,9 @@ export async function getMemberDashboard(
         phone:
           member.phone,
 
+        email:
+          member.email,
+
         joinDate:
           member.joinDate,
 
@@ -1967,13 +1983,28 @@ export async function getMemberDashboard(
   |
   |--------------------------------------------------------------------------
   */
+  const WEEK_1_START = new Date(
+    "2026-04-24T00:00:00"
+  );
+
+  const today = new Date();
+
+  const currentWeek =
+    Math.floor(
+      (
+        today.getTime() -
+        WEEK_1_START.getTime()
+      ) /
+      (7 * 24 * 60 * 60 * 1000)
+    ) + 1;
 
   const totalWeeklyDeposit =
     memberCollections
       .filter(
         (item) =>
-          item.type ===
-          "WEEKLY"
+          item.type === "WEEKLY" &&
+          Number(item.weekNumber || 0) <=
+          currentWeek
       )
       .reduce(
         (sum, item) =>
@@ -1984,7 +2015,7 @@ export async function getMemberDashboard(
             0
           ),
         0
-      );
+      );;
 
   /*
   |--------------------------------------------------------------------------
@@ -2634,6 +2665,9 @@ export async function getMemberDashboard(
       phone:
         member.phone,
 
+      email:
+        member.email,
+
       joinDate:
         member.joinDate,
 
@@ -2795,7 +2829,7 @@ export async function updateMemberProfile(
 
   const rows =
     await getSheetValues(
-      "Members!A:J"
+      "Members!A:K"
     );
 
   if (
@@ -2859,6 +2893,11 @@ export async function updateMemberProfile(
 
     phone:
       cleanPhone,
+
+    email:
+      String(
+        originalRow[10] ?? ""
+      ).trim(),
 
     joinDate:
       String(
@@ -3200,6 +3239,9 @@ export async function createMember(
     phone:
       cleanPhone,
 
+    email:
+      "",
+
     joinDate:
       cleanJoinDate,
 
@@ -3271,6 +3313,38 @@ const pendingMemberRegistrations =
     string,
     PendingMemberRegistration
   >();
+
+
+/*
+|--------------------------------------------------------------------------
+| MEMBER FORGOT PIN / OTP
+|--------------------------------------------------------------------------
+*/
+
+interface PendingMemberPinReset {
+  memberId: string;
+  phone: string;
+  email: string;
+  otpHash: string;
+  otpExpiresAt: number;
+  resendAvailableAt: number;
+  attempts: number;
+  resetTokenHash: string;
+  resetTokenExpiresAt: number;
+}
+
+/*
+ * Temporary Forgot PIN storage.
+ *
+ * Server restart হলে pending PIN reset চলে যাবে।
+ * Google Sheets-এর permanent PIN data অপরিবর্তিত থাকবে।
+ */
+const pendingMemberPinResets =
+  new Map<
+    string,
+    PendingMemberPinReset
+  >();
+
 
 /*
 |--------------------------------------------------------------------------
@@ -3380,7 +3454,7 @@ export async function findMemberByPhone(
 
   const rows =
     await getSheetValues(
-      "Members!A:J"
+      "Members!A:K"
     );
 
   if (
@@ -3454,6 +3528,11 @@ export async function findMemberByPhone(
     updatedAt:
       String(
         row[9] ?? ""
+      ).trim(),
+
+    email:
+      String(
+        row[10] ?? ""
       ).trim(),
   };
 }
@@ -3628,6 +3707,1007 @@ ${warning}
       </div>
     `,
   });
+}
+
+/*
+|--------------------------------------------------------------------------
+| Send Member Forgot PIN OTP
+|--------------------------------------------------------------------------
+*/
+
+async function sendMemberPinResetOTPEmail(
+  email: string,
+  otp: string,
+  language: "bn" | "en"
+): Promise<void> {
+  if (!gmailTransporter) {
+    throw new Error(
+      "EMAIL_NOT_CONFIGURED"
+    );
+  }
+
+  const isBangla =
+    language === "bn";
+
+  const subject = isBangla
+    ? "ক্ষুদ্র সঞ্চয় - PIN Reset OTP"
+    : "ক্ষুদ্র সঞ্চয় - PIN Reset OTP";
+
+  const title = isBangla
+    ? "PIN Reset Verification"
+    : "PIN Reset Verification";
+
+  const greeting = isBangla
+    ? "আপনার Member account-এর PIN reset করার জন্য নিচের OTP ব্যবহার করুন।"
+    : "Use the following OTP to reset your Member account PIN.";
+
+  const expiry = isBangla
+    ? "এই OTP ১০ মিনিটের জন্য কার্যকর থাকবে।"
+    : "This OTP will expire in 10 minutes.";
+
+  const warning = isBangla
+    ? "আপনি যদি PIN reset-এর অনুরোধ না করে থাকেন, তাহলে এই email উপেক্ষা করুন।"
+    : "If you did not request a PIN reset, please ignore this email.";
+
+  await gmailTransporter.sendMail({
+    from: gmailUser,
+    to: email,
+    subject,
+
+    text: `
+${title}
+
+${greeting}
+
+OTP: ${otp}
+
+${expiry}
+
+${warning}
+
+ক্ষুদ্র সঞ্চয়
+সমবায় সমিতি
+`.trim(),
+
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px;">
+        <h2>${title}</h2>
+
+        <p>${greeting}</p>
+
+        <div style="
+          font-size:32px;
+          font-weight:700;
+          letter-spacing:8px;
+          text-align:center;
+          padding:20px;
+          margin:20px 0;
+          background:#f1f5f9;
+          border-radius:12px;
+        ">
+          ${otp}
+        </div>
+
+        <p>${expiry}</p>
+
+        <p style="color:#64748b;">
+          ${warning}
+        </p>
+
+        <hr />
+
+        <p style="color:#64748b;font-size:13px;">
+          ক্ষুদ্র সঞ্চয়<br />
+          সমবায় সমিতি
+        </p>
+      </div>
+    `,
+  });
+}
+
+/*
+|--------------------------------------------------------------------------
+| Send Member PIN Reset OTP
+|--------------------------------------------------------------------------
+*/
+
+export async function sendMemberPinResetOTP(
+  phone: string,
+  language: "bn" | "en"
+): Promise<{
+  success: boolean;
+  code: string;
+  memberId?: string;
+  maskedEmail?: string;
+  expiresIn?: number;
+  resendAfter?: number;
+}> {
+  const cleanPhone =
+    normalizePhone(phone);
+
+  /*
+   * Phone validation
+   */
+  if (
+    !/^01[3-9]\d{8}$/.test(
+      cleanPhone
+    )
+  ) {
+    return {
+      success: false,
+      code: "INVALID_PHONE",
+    };
+  }
+
+  /*
+   * Find member by registered phone
+   */
+  const member =
+    await findMemberByPhone(
+      cleanPhone
+    );
+
+  if (!member) {
+    return {
+      success: false,
+      code: "MEMBER_NOT_FOUND",
+    };
+  }
+
+  /*
+   * Member must be active.
+   */
+  if (
+    member.status
+      .trim()
+      .toUpperCase() !==
+    "ACTIVE"
+  ) {
+    return {
+      success: false,
+      code: "INACTIVE_MEMBER",
+    };
+  }
+
+  /*
+   * Read Members!A:K because Gmail
+   * is stored in Column K.
+   */
+  const rows =
+    await getSheetValues(
+      "Members!A:K"
+    );
+
+  if (
+    !Array.isArray(rows) ||
+    rows.length <= 1
+  ) {
+    return {
+      success: false,
+      code: "MEMBER_NOT_FOUND",
+    };
+  }
+
+  const dataRows =
+    rows.slice(1);
+
+  const rowIndex =
+    dataRows.findIndex(
+      (row) =>
+        normalizeMemberId(
+          row[0]
+        ) ===
+        normalizeMemberId(
+          member.memberId
+        ) &&
+        normalizePhone(
+          row[2]
+        ) === cleanPhone
+    );
+
+  if (rowIndex === -1) {
+    return {
+      success: false,
+      code: "MEMBER_NOT_FOUND",
+    };
+  }
+
+  /*
+   * K = Gmail
+   */
+  const email =
+    normalizeEmail(
+      dataRows[rowIndex][10]
+    );
+
+  if (!email) {
+    return {
+      success: false,
+      code: "EMAIL_NOT_FOUND",
+    };
+  }
+
+  /*
+   * A registered account must already
+   * have a PIN.
+   */
+  if (!member.pinHash) {
+    return {
+      success: false,
+      code: "ACCOUNT_NOT_REGISTERED",
+    };
+  }
+
+  /*
+   * Gmail configuration
+   */
+  if (!gmailTransporter) {
+    return {
+      success: false,
+      code: "EMAIL_NOT_CONFIGURED",
+    };
+  }
+
+  /*
+   * Generate OTP
+   */
+  const otp =
+    generateOTP();
+
+  const now =
+    Date.now();
+
+  const otpExpiresAt =
+    now +
+    10 * 60 * 1000;
+
+  const resendAvailableAt =
+    now +
+    60 * 1000;
+
+  /*
+   * Generate temporary reset token.
+   *
+   * The raw token is never stored.
+   */
+  const resetToken =
+    randomBytes(32).toString("hex");
+
+  const resetTokenHash =
+    hashOTP(resetToken);
+
+  const pendingReset:
+    PendingMemberPinReset = {
+    memberId:
+      normalizeMemberId(
+        member.memberId
+      ),
+
+    phone:
+      cleanPhone,
+
+    email,
+
+    otpHash:
+      hashOTP(otp),
+
+    otpExpiresAt,
+
+    resendAvailableAt,
+
+    attempts: 0,
+
+    resetTokenHash,
+
+    resetTokenExpiresAt: 0,
+  };
+
+  /*
+   * Send email first.
+   *
+   * Only save pending state after
+   * successful email delivery.
+   */
+  try {
+    await sendMemberPinResetOTPEmail(
+      email,
+      otp,
+      language
+    );
+  } catch (error) {
+    console.error(
+      "Member PIN reset OTP email error:",
+      error
+    );
+
+    return {
+      success: false,
+      code: "EMAIL_SEND_FAILED",
+    };
+  }
+
+  pendingMemberPinResets.set(
+    pendingReset.memberId,
+    pendingReset
+  );
+
+  /*
+   * Mask Gmail for frontend.
+   *
+   * Example:
+   * example@gmail.com
+   * -> e*****e@gmail.com
+   */
+  const emailParts =
+    email.split("@");
+
+  const localPart =
+    emailParts[0] ?? "";
+
+  const domain =
+    emailParts[1] ?? "gmail.com";
+
+  let maskedEmail = email;
+
+  if (localPart.length >= 2) {
+    maskedEmail =
+      `${localPart.charAt(0)}${"*".repeat(
+        Math.max(
+          1,
+          localPart.length - 2
+        )
+      )}${localPart.charAt(
+        localPart.length - 1
+      )}@${domain}`;
+  } else if (localPart.length === 1) {
+    maskedEmail =
+      `*@${domain}`;
+  }
+
+  return {
+    success: true,
+    code: "OTP_SENT",
+    memberId:
+      pendingReset.memberId,
+    maskedEmail,
+    expiresIn: 600,
+    resendAfter: 60,
+  };
+}
+
+/*
+|--------------------------------------------------------------------------
+| Verify Member PIN Reset OTP
+|--------------------------------------------------------------------------
+*/
+
+export async function verifyMemberPinResetOTP(
+  phone: string,
+  otp: string
+): Promise<{
+  success: boolean;
+  code: string;
+  resetToken?: string;
+}> {
+  const cleanPhone =
+    normalizePhone(phone);
+
+  const cleanOTP =
+    String(
+      otp ?? ""
+    ).trim();
+
+  if (
+    !/^01[3-9]\d{8}$/.test(
+      cleanPhone
+    )
+  ) {
+    return {
+      success: false,
+      code: "INVALID_PHONE",
+    };
+  }
+
+  if (
+    !/^\d{6}$/.test(
+      cleanOTP
+    )
+  ) {
+    return {
+      success: false,
+      code: "OTP_INVALID",
+    };
+  }
+
+  const member =
+    await findMemberByPhone(
+      cleanPhone
+    );
+
+  if (!member) {
+    return {
+      success: false,
+      code: "MEMBER_NOT_FOUND",
+    };
+  }
+
+  const memberId =
+    normalizeMemberId(
+      member.memberId
+    );
+
+  const pending =
+    pendingMemberPinResets.get(
+      memberId
+    );
+
+  if (!pending) {
+    return {
+      success: false,
+      code: "OTP_NOT_FOUND",
+    };
+  }
+
+  /*
+   * Ensure the same phone is being used.
+   */
+  if (
+    pending.phone !==
+    cleanPhone
+  ) {
+    pendingMemberPinResets.delete(
+      memberId
+    );
+
+    return {
+      success: false,
+      code: "OTP_NOT_FOUND",
+    };
+  }
+
+  /*
+   * Expired
+   */
+  if (
+    Date.now() >
+    pending.otpExpiresAt
+  ) {
+    pendingMemberPinResets.delete(
+      memberId
+    );
+
+    return {
+      success: false,
+      code: "OTP_EXPIRED",
+    };
+  }
+
+  /*
+   * Maximum attempts
+   */
+  if (
+    pending.attempts >= 5
+  ) {
+    pendingMemberPinResets.delete(
+      memberId
+    );
+
+    return {
+      success: false,
+      code:
+        "OTP_TOO_MANY_ATTEMPTS",
+    };
+  }
+
+  /*
+   * Verify OTP
+   */
+  const incomingOTPHash =
+    hashOTP(cleanOTP);
+
+  if (
+    incomingOTPHash !==
+    pending.otpHash
+  ) {
+    pending.attempts += 1;
+
+    if (
+      pending.attempts >= 5
+    ) {
+      pendingMemberPinResets.delete(
+        memberId
+      );
+
+      return {
+        success: false,
+        code:
+          "OTP_TOO_MANY_ATTEMPTS",
+      };
+    }
+
+    return {
+      success: false,
+      code: "OTP_INVALID",
+    };
+  }
+
+  /*
+   * Re-check the member before
+   * allowing PIN reset.
+   */
+  const currentMember =
+    await findMemberById(
+      memberId
+    );
+
+  if (!currentMember) {
+    pendingMemberPinResets.delete(
+      memberId
+    );
+
+    return {
+      success: false,
+      code: "MEMBER_NOT_FOUND",
+    };
+  }
+
+  if (
+    currentMember.status
+      .trim()
+      .toUpperCase() !==
+    "ACTIVE"
+  ) {
+    pendingMemberPinResets.delete(
+      memberId
+    );
+
+    return {
+      success: false,
+      code: "INACTIVE_MEMBER",
+    };
+  }
+
+  if (
+    !currentMember.pinHash
+  ) {
+    pendingMemberPinResets.delete(
+      memberId
+    );
+
+    return {
+      success: false,
+      code:
+        "ACCOUNT_NOT_REGISTERED",
+    };
+  }
+
+  /*
+   * Generate a new reset token.
+   */
+  const resetToken =
+    randomBytes(32).toString("hex");
+
+  pending.resetTokenHash =
+    hashOTP(resetToken);
+
+  /*
+   * Reset token valid for 10 minutes.
+   */
+  pending.resetTokenExpiresAt =
+    Date.now() +
+    10 * 60 * 1000;
+
+  return {
+    success: true,
+    code: "OTP_VERIFIED",
+    resetToken,
+  };
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Resend Member PIN Reset OTP
+|--------------------------------------------------------------------------
+*/
+
+export async function resendMemberPinResetOTP(
+  phone: string,
+  language: "bn" | "en"
+): Promise<{
+  success: boolean;
+  code: string;
+  resendAfter?: number;
+  expiresIn?: number;
+}> {
+  const cleanPhone =
+    normalizePhone(phone);
+
+  if (
+    !/^01[3-9]\d{8}$/.test(
+      cleanPhone
+    )
+  ) {
+    return {
+      success: false,
+      code: "INVALID_PHONE",
+    };
+  }
+
+  const member =
+    await findMemberByPhone(
+      cleanPhone
+    );
+
+  if (!member) {
+    return {
+      success: false,
+      code: "MEMBER_NOT_FOUND",
+    };
+  }
+
+  const memberId =
+    normalizeMemberId(
+      member.memberId
+    );
+
+  const pending =
+    pendingMemberPinResets.get(
+      memberId
+    );
+
+  if (!pending) {
+    return {
+      success: false,
+      code: "OTP_NOT_FOUND",
+    };
+  }
+
+  if (
+    Date.now() >
+    pending.otpExpiresAt
+  ) {
+    pendingMemberPinResets.delete(
+      memberId
+    );
+
+    return {
+      success: false,
+      code: "OTP_EXPIRED",
+    };
+  }
+
+  const remaining =
+    pending.resendAvailableAt -
+    Date.now();
+
+  if (remaining > 0) {
+    return {
+      success: false,
+      code:
+        "OTP_RESEND_COOLDOWN",
+      resendAfter:
+        Math.ceil(
+          remaining / 1000
+        ),
+    };
+  }
+
+  const otp =
+    generateOTP();
+
+  const newOtpHash =
+    hashOTP(otp);
+
+  const newOtpExpiresAt =
+    Date.now() +
+    10 * 60 * 1000;
+
+  const newResendAvailableAt =
+    Date.now() +
+    60 * 1000;
+
+  try {
+    await sendMemberPinResetOTPEmail(
+      pending.email,
+      otp,
+      language
+    );
+  } catch (error) {
+    console.error(
+      "Member PIN reset OTP resend error:",
+      error
+    );
+
+    return {
+      success: false,
+      code: "EMAIL_SEND_FAILED",
+    };
+  }
+
+  /*
+   * Update state only after
+   * successful email sending.
+   */
+  pending.otpHash =
+    newOtpHash;
+
+  pending.otpExpiresAt =
+    newOtpExpiresAt;
+
+  pending.resendAvailableAt =
+    newResendAvailableAt;
+
+  pending.attempts = 0;
+
+  /*
+   * A newly sent OTP means the
+   * previous verification is no
+   * longer valid.
+   */
+  pending.resetTokenHash = "";
+
+  pending.resetTokenExpiresAt = 0;
+
+  return {
+    success: true,
+    code: "OTP_SENT",
+    expiresIn: 600,
+    resendAfter: 60,
+  };
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Reset Member PIN
+|--------------------------------------------------------------------------
+*/
+
+export async function resetMemberPin(
+  phone: string,
+  resetToken: string,
+  newPin: string,
+  confirmPin: string
+): Promise<{
+  success: boolean;
+  code: string;
+}> {
+  const cleanPhone =
+    normalizePhone(phone);
+
+  const cleanResetToken =
+    String(
+      resetToken ?? ""
+    ).trim();
+
+  const cleanNewPin =
+    String(
+      newPin ?? ""
+    ).trim();
+
+  const cleanConfirmPin =
+    String(
+      confirmPin ?? ""
+    ).trim();
+
+  if (
+    !/^01[3-9]\d{8}$/.test(
+      cleanPhone
+    )
+  ) {
+    return {
+      success: false,
+      code: "INVALID_PHONE",
+    };
+  }
+
+  /*
+   * Existing registration/change-PIN
+   * rule: 4–6 numeric digits.
+   */
+  if (
+    !/^\d{4,6}$/.test(
+      cleanNewPin
+    )
+  ) {
+    return {
+      success: false,
+      code: "INVALID_PIN",
+    };
+  }
+
+  if (
+    cleanNewPin !==
+    cleanConfirmPin
+  ) {
+    return {
+      success: false,
+      code: "PIN_MISMATCH",
+    };
+  }
+
+  if (!cleanResetToken) {
+    return {
+      success: false,
+      code: "RESET_TOKEN_INVALID",
+    };
+  }
+
+  const member =
+    await findMemberByPhone(
+      cleanPhone
+    );
+
+  if (!member) {
+    return {
+      success: false,
+      code: "MEMBER_NOT_FOUND",
+    };
+  }
+
+  const memberId =
+    normalizeMemberId(
+      member.memberId
+    );
+
+  const pending =
+    pendingMemberPinResets.get(
+      memberId
+    );
+
+  if (!pending) {
+    return {
+      success: false,
+      code: "RESET_SESSION_NOT_FOUND",
+    };
+  }
+
+  /*
+   * Reset token expiry
+   */
+  if (
+    !pending.resetTokenExpiresAt ||
+    Date.now() >
+    pending.resetTokenExpiresAt
+  ) {
+    pendingMemberPinResets.delete(
+      memberId
+    );
+
+    return {
+      success: false,
+      code: "RESET_TOKEN_EXPIRED",
+    };
+  }
+
+  /*
+   * Verify reset token.
+   */
+  const incomingTokenHash =
+    hashOTP(
+      cleanResetToken
+    );
+
+  if (
+    incomingTokenHash !==
+    pending.resetTokenHash
+  ) {
+    return {
+      success: false,
+      code: "RESET_TOKEN_INVALID",
+    };
+  }
+
+  /*
+   * Re-read the actual Google Sheet.
+   */
+  const rows =
+    await getSheetValues(
+      "Members!A:K"
+    );
+
+  if (
+    !Array.isArray(rows) ||
+    rows.length <= 1
+  ) {
+    pendingMemberPinResets.delete(
+      memberId
+    );
+
+    return {
+      success: false,
+      code: "MEMBER_NOT_FOUND",
+    };
+  }
+
+  const dataRows =
+    rows.slice(1);
+
+  const rowIndex =
+    dataRows.findIndex(
+      (row) =>
+        normalizeMemberId(
+          row[0]
+        ) === memberId &&
+        normalizePhone(
+          row[2]
+        ) === cleanPhone
+    );
+
+  if (rowIndex === -1) {
+    pendingMemberPinResets.delete(
+      memberId
+    );
+
+    return {
+      success: false,
+      code: "MEMBER_NOT_FOUND",
+    };
+  }
+
+  const sheetRowNumber =
+    rowIndex + 2;
+
+  /*
+   * Make sure account is still active.
+   */
+  const currentStatus =
+    String(
+      dataRows[rowIndex][7] ??
+      ""
+    ).trim();
+
+  if (
+    currentStatus
+      .toUpperCase() !==
+    "ACTIVE"
+  ) {
+    pendingMemberPinResets.delete(
+      memberId
+    );
+
+    return {
+      success: false,
+      code: "INACTIVE_MEMBER",
+    };
+  }
+
+  /*
+   * Hash new PIN.
+   */
+  const newPinHash =
+    hashPin(
+      cleanNewPin
+    );
+
+  /*
+   * G = PIN Hash
+   *
+   * Only G is updated.
+   * A, B, C, D, E, F, H, I, J, K
+   * remain unchanged.
+   */
+  await updateSheetValues(
+    `Members!G${sheetRowNumber}`,
+    [
+      [
+        newPinHash,
+      ],
+    ]
+  );
+
+  /*
+   * Reset completed.
+   */
+  pendingMemberPinResets.delete(
+    memberId
+  );
+
+  return {
+    success: true,
+    code: "PIN_RESET_SUCCESS",
+  };
 }
 
 /*

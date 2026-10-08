@@ -1,11 +1,16 @@
 import React, {
     useEffect,
+    useRef,
     useState,
 } from 'react';
+
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 import {
     ActivityIndicator,
     Alert,
+    Animated,
+    Easing,
     KeyboardAvoidingView,
     Platform,
     Pressable,
@@ -27,7 +32,14 @@ import {
 import {
     getCurrentMember,
     changeMemberPin,
+    clearCurrentMember,
 } from '../../lib/member-api';
+
+import {
+    getMemberLanguage,
+    setMemberLanguage,
+    MemberLanguage,
+} from '../../lib/member-language';
 
 /* ========================================================================== */
 /* TRANSLATIONS                                                               */
@@ -35,92 +47,173 @@ import {
 
 const translations = {
     bn: {
-        title:
-            'PIN পরিবর্তন',
+        appName:
+            'ক্ষুদ্র সঞ্চয়',
 
-        subtitle:
-            'আপনার সদস্য অ্যাকাউন্টের PIN পরিবর্তন করুন',
+        appSubtitle:
+            'সমবায় সমিতি',
 
-        currentPin:
-            'বর্তমান PIN',
+        memberPanel:
+            'সদস্য প্যানেল',
 
-        currentPinPlaceholder:
-            'বর্তমান PIN লিখুন',
+        dashboard:
+            'ড্যাশবোর্ড',
 
-        newPin:
-            'নতুন PIN',
+        profile:
+            'প্রোফাইল',
 
-        newPinPlaceholder:
-            'নতুন PIN লিখুন',
-
-        confirmPin:
-            'নতুন PIN আবার দিন',
-
-        confirmPinPlaceholder:
-            'নতুন PIN আবার লিখুন',
-
-        show:
-            'দেখুন',
-
-        hide:
-            'লুকান',
-
-        securityTitle:
-            'PIN নিরাপত্তা',
-
-        securityDescription:
-            'আপনার সদস্য অ্যাকাউন্টের PIN নিরাপদ রাখুন।',
-
-        requirementTitle:
-            'PIN নিরাপত্তা',
-
-        requirement1:
-            'PIN কমপক্ষে ৬ অক্ষরের হতে হবে।',
-
-        requirement2:
-            'নতুন PIN বর্তমান PIN থেকে আলাদা হতে হবে।',
+        changeGmail:
+            'জি-মেইল পরিবর্তন',
 
         changePin:
-            'PIN পরিবর্তন করুন',
+            'পিন পরিবর্তন',
+
+        weeklyDeposit:
+            'সাপ্তাহিক জমা',
+
+        pendingDeposit:
+            'অপেক্ষমাণ জমা',
+
+        weeklyHistory:
+            'সাপ্তাহিক জমার ইতিহাস',
+
+        language:
+            'ভাষা নির্বাচন করুন',
+
+        bangla:
+            'বাংলা',
+
+        english:
+            'EN',
+
+        logout:
+            'লগআউট',
+
+        memberId:
+            'সদস্য ID',
+
+        title:
+            'পিন পরিবর্তন',
+
+        subtitle:
+            'আপনার সদস্য অ্যাকাউন্টের পিন পরিবর্তন করুন',
+
+        currentPin:
+            'বর্তমান পিন',
+
+        currentPinPlaceholder:
+            'বর্তমান পিন লিখুন',
+
+        newPin:
+            'নতুন পিন',
+
+        newPinPlaceholder:
+            'নতুন পিন লিখুন',
+
+        confirmPin:
+            'নতুন পিন আবার দিন',
+
+        confirmPinPlaceholder:
+            'নতুন পিন আবার লিখুন',
+
+        securityTitle:
+            'পিন নিরাপত্তা',
+
+        securityDescription:
+            'আপনার সদস্য অ্যাকাউন্টের পিন নিরাপদ রাখুন।',
+
+        requirementTitle:
+            'পিন নিরাপত্তা',
+
+        requirement1:
+            'পিন ৪ থেকে ৬ সংখ্যার হতে হবে।',
+
+        requirement2:
+            'নতুন পিন বর্তমান পিন থেকে আলাদা হতে হবে।',
+
+        changePinButton:
+            'পিন পরিবর্তন করুন',
 
         changing:
-            'PIN পরিবর্তন হচ্ছে...',
+            'পিন পরিবর্তন হচ্ছে...',
 
         currentRequired:
-            'বর্তমান PIN দিন।',
+            'বর্তমান পিন দিন।',
 
         newRequired:
-            'নতুন PIN দিন।',
+            'নতুন পিন দিন।',
 
         confirmRequired:
-            'নতুন PIN আবার দিন।',
+            'নতুন পিন আবার দিন।',
 
-        invalidNewPin:
-            'নতুন PIN কমপক্ষে ৬ অক্ষরের হতে হবে।',
+        invalidPin:
+            'পিন ৪ থেকে ৬ সংখ্যার হতে হবে।',
 
         pinMismatch:
-            'নতুন PIN এবং নিশ্চিত PIN মিলছে না।',
+            'নতুন পিন এবং নিশ্চিত পিন মিলছে না।',
 
         samePin:
-            'নতুন PIN বর্তমান PIN থেকে আলাদা হতে হবে।',
+            'নতুন পিন বর্তমান পিন থেকে আলাদা হতে হবে।',
 
         memberNotFound:
-            'বর্তমান সদস্য সেশন পাওয়া যায়নি। আবার login করুন।',
+            'বর্তমান সদস্য সেশন পাওয়া যায়নি। আবার লগইন করুন।',
 
         successTitle:
             'সফল',
 
         successMessage:
-            'আপনার PIN সফলভাবে পরিবর্তন হয়েছে।',
+            'আপনার পিন সফলভাবে পরিবর্তন হয়েছে।',
 
         error:
             'কিছু সমস্যা হয়েছে',
-
-        back:
-            'ড্যাশবোর্ডে ফিরে যান',
     },
 
     en: {
+        appName:
+            'ক্ষুদ্র সঞ্চয়',
+
+        appSubtitle:
+            'সমবায় সমিতি',
+
+        memberPanel:
+            'Member Panel',
+
+        dashboard:
+            'Dashboard',
+
+        profile:
+            'Profile',
+
+        changeGmail:
+            'Change Gmail',
+
+        changePin:
+            'Change PIN',
+
+        weeklyDeposit:
+            'Weekly Deposit',
+
+        pendingDeposit:
+            'Pending Deposit',
+
+        weeklyHistory:
+            'Weekly Deposit History',
+
+        language:
+            'Select Language',
+
+        bangla:
+            'বাংলা',
+
+        english:
+            'EN',
+
+        logout:
+            'Logout',
+
+        memberId:
+            'Member ID',
+
         title:
             'Change PIN',
 
@@ -145,12 +238,6 @@ const translations = {
         confirmPinPlaceholder:
             'Re-enter new PIN',
 
-        show:
-            'Show',
-
-        hide:
-            'Hide',
-
         securityTitle:
             'PIN Security',
 
@@ -161,12 +248,12 @@ const translations = {
             'PIN Security',
 
         requirement1:
-            'PIN must be at least 6 characters.',
+            'PIN must be 4 to 6 digits.',
 
         requirement2:
             'New PIN must be different from your current PIN.',
 
-        changePin:
+        changePinButton:
             'Change PIN',
 
         changing:
@@ -181,8 +268,8 @@ const translations = {
         confirmRequired:
             'Confirm your new PIN.',
 
-        invalidNewPin:
-            'New PIN must be at least 6 characters.',
+        invalidPin:
+            'PIN must be 4 to 6 digits.',
 
         pinMismatch:
             'New PIN and confirm PIN do not match.',
@@ -201,9 +288,6 @@ const translations = {
 
         error:
             'Something went wrong',
-
-        back:
-            'Back to Dashboard',
     },
 };
 
@@ -220,7 +304,7 @@ export default function ChangePinScreen() {
     const [
         language,
         setLanguage,
-    ] = useState<'bn' | 'en'>(
+    ] = useState<MemberLanguage>(
         'bn'
     );
 
@@ -232,11 +316,12 @@ export default function ChangePinScreen() {
     /* ---------------------------------------------------------------------- */
 
     const [
-        memberId,
-        setMemberId,
-    ] = useState<string | null>(
-        null
-    );
+        member,
+        setMember,
+    ] = useState<{
+        memberId: string;
+        memberName: string;
+    } | null>(null);
 
     /* ---------------------------------------------------------------------- */
     /* FORM STATE                                                              */
@@ -281,6 +366,93 @@ export default function ChangePinScreen() {
         setShowConfirmPin,
     ] = useState(false);
 
+    /* ---------------------------------------------------------------------- */
+    /* DRAWER STATE                                                            */
+    /* ---------------------------------------------------------------------- */
+
+    const [
+        menuOpen,
+        setMenuOpen,
+    ] = useState(false);
+
+    const [
+        menuMounted,
+        setMenuMounted,
+    ] = useState(false);
+
+    const drawerTranslateX =
+        useRef(
+            new Animated.Value(-330)
+        ).current;
+
+    const overlayOpacity =
+        useRef(
+            new Animated.Value(0)
+        ).current;
+
+    /* ====================================================================== */
+    /* LOAD LANGUAGE                                                           */
+    /* ====================================================================== */
+
+    useEffect(() => {
+
+        const loadLanguage =
+            async () => {
+
+                try {
+
+                    const savedLanguage =
+                        await getMemberLanguage();
+
+                    setLanguage(
+                        savedLanguage
+                    );
+
+                } catch (error) {
+
+                    console.error(
+                        'Member language load error:',
+                        error
+                    );
+
+                }
+
+            };
+
+        loadLanguage();
+
+    }, []);
+
+    /* ====================================================================== */
+    /* CHANGE LANGUAGE                                                         */
+    /* ====================================================================== */
+
+    const changeLanguage =
+        async (
+            newLanguage: MemberLanguage
+        ) => {
+
+            setLanguage(
+                newLanguage
+            );
+
+            try {
+
+                await setMemberLanguage(
+                    newLanguage
+                );
+
+            } catch (error) {
+
+                console.error(
+                    'Member language save error:',
+                    error
+                );
+
+            }
+
+        };
+
     /* ====================================================================== */
     /* LOAD MEMBER                                                             */
     /* ====================================================================== */
@@ -308,9 +480,11 @@ export default function ChangePinScreen() {
                                     text: 'OK',
 
                                     onPress: () => {
+
                                         router.replace(
                                             '/member/login'
                                         );
+
                                     },
                                 },
                             ]
@@ -319,8 +493,8 @@ export default function ChangePinScreen() {
                         return;
                     }
 
-                    setMemberId(
-                        result.member.memberId
+                    setMember(
+                        result.member
                     );
 
                 } catch (error) {
@@ -338,9 +512,11 @@ export default function ChangePinScreen() {
                                 text: 'OK',
 
                                 onPress: () => {
+
                                     router.replace(
                                         '/member/login'
                                     );
+
                                 },
                             },
                         ]
@@ -355,6 +531,176 @@ export default function ChangePinScreen() {
     }, []);
 
     /* ====================================================================== */
+    /* DRAWER                                                                  */
+    /* ====================================================================== */
+
+    const openMenu = () => {
+
+        if (menuMounted) {
+            return;
+        }
+
+        setMenuMounted(true);
+        setMenuOpen(true);
+
+        drawerTranslateX.setValue(
+            -330
+        );
+
+        overlayOpacity.setValue(
+            0
+        );
+
+        requestAnimationFrame(() => {
+
+            Animated.parallel([
+
+                Animated.timing(
+                    drawerTranslateX,
+                    {
+                        toValue: 0,
+                        duration: 230,
+                        easing:
+                            Easing.out(
+                                Easing.cubic
+                            ),
+                        useNativeDriver: true,
+                    }
+                ),
+
+                Animated.timing(
+                    overlayOpacity,
+                    {
+                        toValue: 1,
+                        duration: 180,
+                        easing:
+                            Easing.out(
+                                Easing.quad
+                            ),
+                        useNativeDriver: true,
+                    }
+                ),
+
+            ]).start();
+
+        });
+
+    };
+
+    const closeMenu = (
+        callback?: () => void
+    ) => {
+
+        if (!menuMounted) {
+
+            callback?.();
+
+            return;
+        }
+
+        Animated.parallel([
+
+            Animated.timing(
+                drawerTranslateX,
+                {
+                    toValue: -330,
+                    duration: 230,
+                    easing:
+                        Easing.in(
+                            Easing.cubic
+                        ),
+                    useNativeDriver: true,
+                }
+            ),
+
+            Animated.timing(
+                overlayOpacity,
+                {
+                    toValue: 0,
+                    duration: 180,
+                    easing:
+                        Easing.in(
+                            Easing.quad
+                        ),
+                    useNativeDriver: true,
+                }
+            ),
+
+        ]).start(() => {
+
+            setMenuOpen(false);
+            setMenuMounted(false);
+
+            callback?.();
+
+        });
+
+    };
+
+    /* ====================================================================== */
+    /* MENU PRESS                                                              */
+    /* ====================================================================== */
+
+    const handleMenuPress = (
+        route?: string
+    ) => {
+
+        if (!route) {
+
+            closeMenu();
+
+            return;
+        }
+
+        closeMenu(() => {
+
+            router.push(
+                route as any
+            );
+
+        });
+
+    };
+
+    /* ====================================================================== */
+    /* LOGOUT                                                                  */
+    /* ====================================================================== */
+
+    const handleLogout = () => {
+
+        closeMenu(() => {
+
+            clearCurrentMember();
+
+            router.replace(
+                '/member/login'
+            );
+
+        });
+
+    };
+
+    /* ====================================================================== */
+    /* PIN INPUT                                                               */
+    /* ====================================================================== */
+
+    const sanitizePin = (
+        value: string
+    ) => {
+
+        return value
+            .replace(
+                /[^0-9]/g,
+                ''
+            )
+            .slice(
+                0,
+                6
+            );
+
+    };
+
+    /* ====================================================================== */
     /* CHANGE PIN                                                              */
     /* ====================================================================== */
 
@@ -364,7 +710,9 @@ export default function ChangePinScreen() {
         /* MEMBER SESSION                                                      */
         /* ------------------------------------------------------------------ */
 
-        if (!memberId) {
+        const currentMemberId = member?.memberId;
+
+        if (!currentMemberId) {
 
             Alert.alert(
                 t.error,
@@ -419,12 +767,17 @@ export default function ChangePinScreen() {
         /* ------------------------------------------------------------------ */
 
         if (
-            newPin.length < 6
+            currentPin.length < 4 ||
+            currentPin.length > 6 ||
+            newPin.length < 4 ||
+            newPin.length > 6 ||
+            confirmPin.length < 4 ||
+            confirmPin.length > 6
         ) {
 
             Alert.alert(
                 t.error,
-                t.invalidNewPin
+                t.invalidPin
             );
 
             return;
@@ -474,12 +827,12 @@ export default function ChangePinScreen() {
 
             console.log(
                 'Changing member PIN:',
-                memberId
+                currentMemberId
             );
 
             const result =
                 await changeMemberPin(
-                    memberId,
+                    currentMemberId,
                     currentPin,
                     newPin
                 );
@@ -501,17 +854,13 @@ export default function ChangePinScreen() {
                 return;
             }
 
-            /* -------------------------------------------------------------- */
-            /* CLEAR FORM                                                      */
-            /* -------------------------------------------------------------- */
-
             setCurrentPin('');
             setNewPin('');
             setConfirmPin('');
 
-            /* -------------------------------------------------------------- */
-            /* SUCCESS                                                         */
-            /* -------------------------------------------------------------- */
+            setShowCurrentPin(false);
+            setShowNewPin(false);
+            setShowConfirmPin(false);
 
             Alert.alert(
                 t.successTitle,
@@ -548,6 +897,7 @@ export default function ChangePinScreen() {
             setChanging(false);
 
         }
+
     }
 
     /* ====================================================================== */
@@ -579,9 +929,9 @@ export default function ChangePinScreen() {
                     }
                 >
 
-                    {/* ================================================== */}
-                    {/* HEADER                                             */}
-                    {/* ================================================== */}
+                    {/* ====================================================== */}
+                    {/* HEADER                                                 */}
+                    {/* ====================================================== */}
 
                     <View
                         style={
@@ -589,57 +939,81 @@ export default function ChangePinScreen() {
                         }
                     >
 
-                        <Pressable
-                            onPress={() =>
-                                router.replace(
-                                    '/member/dashboard'
-                                )
-                            }
-                            style={
-                                styles.backButton
-                            }
-                            hitSlop={8}
-                        >
-
-                            <Text
-                                style={
-                                    styles.backText
-                                }
-                            >
-                                ‹
-                            </Text>
-
-                        </Pressable>
-
                         <View
                             style={
-                                styles.headerTextContainer
+                                styles.headerLeft
                             }
                         >
 
-                            <Text
-                                style={
-                                    styles.headerTitle
+                            <Pressable
+                                onPress={
+                                    openMenu
                                 }
+                                style={({ pressed }) => [
+
+                                    styles.menuButton,
+
+                                    pressed &&
+                                    styles.menuButtonPressed,
+
+                                ]}
                             >
-                                {t.title}
+
+                                <Ionicons
+                                    name="menu-outline"
+                                    size={24}
+                                    color="#0f172a"
+                                />
+
+                            </Pressable>
+
+                            <View>
+
+                                <Text
+                                    style={
+                                        styles.appName
+                                    }
+                                >
+                                    {t.appName}
+                                </Text>
+
+                                <Text
+                                    style={
+                                        styles.appSubtitle
+                                    }
+                                >
+                                    {t.appSubtitle}
+                                </Text>
+
+                            </View>
+
+                        </View>
+
+                        <View
+                            style={styles.memberInfo}
+                        >
+
+                            <Text
+                                style={styles.memberName}
+                                numberOfLines={1}
+                            >
+                                {member?.memberName || ''}
                             </Text>
 
                             <Text
-                                style={
-                                    styles.headerSubtitle
-                                }
+                                style={styles.memberId}
+                                numberOfLines={1}
                             >
-                                {t.subtitle}
+                                {t.memberId}: {member?.memberId || ''}
                             </Text>
 
                         </View>
 
                     </View>
 
-                    {/* ================================================== */}
-                    {/* CONTENT                                             */}
-                    {/* ================================================== */}
+                    {/* ====================================================== */}
+                    {/* CONTENT                                                */}
+                    {/* ====================================================== */}
 
                     <ScrollView
                         showsVerticalScrollIndicator={
@@ -652,7 +1026,7 @@ export default function ChangePinScreen() {
                     >
 
                         {/* ================================================== */}
-                        {/* SECURITY CARD                                      */}
+                        {/* SECURITY CARD                                       */}
                         {/* ================================================== */}
 
                         <View
@@ -667,13 +1041,11 @@ export default function ChangePinScreen() {
                                 }
                             >
 
-                                <Text
-                                    style={
-                                        styles.securityIconText
-                                    }
-                                >
-                                    •••
-                                </Text>
+                                <Ionicons
+                                    name="lock-closed-outline"
+                                    size={27}
+                                    color="#ffffff"
+                                />
 
                             </View>
 
@@ -682,7 +1054,7 @@ export default function ChangePinScreen() {
                                     styles.securityTitle
                                 }
                             >
-                                {t.securityTitle}
+                                {t.title}
                             </Text>
 
                             <Text
@@ -696,7 +1068,7 @@ export default function ChangePinScreen() {
                         </View>
 
                         {/* ================================================== */}
-                        {/* FORM                                               */}
+                        {/* FORM                                                */}
                         {/* ================================================== */}
 
                         <View
@@ -725,8 +1097,14 @@ export default function ChangePinScreen() {
                                     value={
                                         currentPin
                                     }
-                                    onChangeText={
-                                        setCurrentPin
+                                    onChangeText={(
+                                        value
+                                    ) =>
+                                        setCurrentPin(
+                                            sanitizePin(
+                                                value
+                                            )
+                                        )
                                     }
                                     placeholder={
                                         t.currentPinPlaceholder
@@ -737,7 +1115,8 @@ export default function ChangePinScreen() {
                                     }
                                     autoCapitalize="none"
                                     autoCorrect={false}
-                                    keyboardType="numeric"
+                                    keyboardType="number-pad"
+                                    maxLength={6}
                                     style={
                                         styles.input
                                     }
@@ -751,21 +1130,20 @@ export default function ChangePinScreen() {
                                         )
                                     }
                                     style={
-                                        styles.showButton
+                                        styles.eyeButton
                                     }
+                                    hitSlop={8}
                                 >
 
-                                    <Text
-                                        style={
-                                            styles.showText
-                                        }
-                                    >
-                                        {
+                                    <Ionicons
+                                        name={
                                             showCurrentPin
-                                                ? t.hide
-                                                : t.show
+                                                ? 'eye-off-outline'
+                                                : 'eye-outline'
                                         }
-                                    </Text>
+                                        size={21}
+                                        color="#64748b"
+                                    />
 
                                 </Pressable>
 
@@ -791,8 +1169,14 @@ export default function ChangePinScreen() {
                                     value={
                                         newPin
                                     }
-                                    onChangeText={
-                                        setNewPin
+                                    onChangeText={(
+                                        value
+                                    ) =>
+                                        setNewPin(
+                                            sanitizePin(
+                                                value
+                                            )
+                                        )
                                     }
                                     placeholder={
                                         t.newPinPlaceholder
@@ -803,7 +1187,8 @@ export default function ChangePinScreen() {
                                     }
                                     autoCapitalize="none"
                                     autoCorrect={false}
-                                    keyboardType="numeric"
+                                    keyboardType="number-pad"
+                                    maxLength={6}
                                     style={
                                         styles.input
                                     }
@@ -817,21 +1202,20 @@ export default function ChangePinScreen() {
                                         )
                                     }
                                     style={
-                                        styles.showButton
+                                        styles.eyeButton
                                     }
+                                    hitSlop={8}
                                 >
 
-                                    <Text
-                                        style={
-                                            styles.showText
-                                        }
-                                    >
-                                        {
+                                    <Ionicons
+                                        name={
                                             showNewPin
-                                                ? t.hide
-                                                : t.show
+                                                ? 'eye-off-outline'
+                                                : 'eye-outline'
                                         }
-                                    </Text>
+                                        size={21}
+                                        color="#64748b"
+                                    />
 
                                 </Pressable>
 
@@ -857,8 +1241,14 @@ export default function ChangePinScreen() {
                                     value={
                                         confirmPin
                                     }
-                                    onChangeText={
-                                        setConfirmPin
+                                    onChangeText={(
+                                        value
+                                    ) =>
+                                        setConfirmPin(
+                                            sanitizePin(
+                                                value
+                                            )
+                                        )
                                     }
                                     placeholder={
                                         t.confirmPinPlaceholder
@@ -869,7 +1259,8 @@ export default function ChangePinScreen() {
                                     }
                                     autoCapitalize="none"
                                     autoCorrect={false}
-                                    keyboardType="numeric"
+                                    keyboardType="number-pad"
+                                    maxLength={6}
                                     style={
                                         styles.input
                                     }
@@ -883,21 +1274,20 @@ export default function ChangePinScreen() {
                                         )
                                     }
                                     style={
-                                        styles.showButton
+                                        styles.eyeButton
                                     }
+                                    hitSlop={8}
                                 >
 
-                                    <Text
-                                        style={
-                                            styles.showText
-                                        }
-                                    >
-                                        {
+                                    <Ionicons
+                                        name={
                                             showConfirmPin
-                                                ? t.hide
-                                                : t.show
+                                                ? 'eye-off-outline'
+                                                : 'eye-outline'
                                         }
-                                    </Text>
+                                        size={21}
+                                        color="#64748b"
+                                    />
 
                                 </Pressable>
 
@@ -947,24 +1337,24 @@ export default function ChangePinScreen() {
                                 }
                                 disabled={
                                     changing ||
-                                    !memberId
+                                    !member?.memberId
                                 }
                                 style={({
                                     pressed,
                                 }) => [
 
-                                    styles.changeButton,
+                                        styles.changeButton,
 
-                                    (changing ||
-                                        !memberId) &&
+                                        (changing ||
+                                            !member?.memberId) &&
                                         styles.changeButtonDisabled,
 
-                                    pressed &&
+                                        pressed &&
                                         !changing &&
-                                        memberId &&
+                                        !!member?.memberId &&
                                         styles.changeButtonPressed,
 
-                                ]}
+                                    ]}
                             >
 
                                 {changing ? (
@@ -998,7 +1388,7 @@ export default function ChangePinScreen() {
                                         }
                                     >
                                         {
-                                            t.changePin
+                                            t.changePinButton
                                         }
                                     </Text>
 
@@ -1008,44 +1398,422 @@ export default function ChangePinScreen() {
 
                         </View>
 
-                        {/* BACK TO DASHBOARD */}
-
-                        <Pressable
-                            onPress={() =>
-                                router.replace(
-                                    '/member/dashboard'
-                                )
-                            }
-                            style={
-                                styles.backDashboardButton
-                            }
-                        >
-
-                            <Text
-                                style={
-                                    styles.backDashboardText
-                                }
-                            >
-                                ‹
-                            </Text>
-
-                            <Text
-                                style={
-                                    styles.backDashboardTextLabel
-                                }
-                            >
-                                {t.back}
-                            </Text>
-
-                        </Pressable>
-
                         <View
-                            style={{
-                                height: 30,
-                            }}
+                            style={
+                                styles.bottomSpacing
+                            }
                         />
 
                     </ScrollView>
+
+                    {/* ====================================================== */}
+                    {/* SIDE MENU                                               */}
+                    {/* ====================================================== */}
+
+                    {menuMounted && (
+
+                        <View
+                            style={
+                                styles.menuOverlay
+                            }
+                        >
+
+                            {/* OVERLAY */}
+
+                            <Animated.View
+                                pointerEvents={
+                                    menuOpen
+                                        ? 'auto'
+                                        : 'none'
+                                }
+                                style={[
+                                    styles.overlayBackground,
+                                    {
+                                        opacity:
+                                            overlayOpacity,
+                                    },
+                                ]}
+                            >
+
+                                <Pressable
+                                    style={
+                                        styles.overlayPressable
+                                    }
+                                    onPress={() =>
+                                        closeMenu()
+                                    }
+                                />
+
+                            </Animated.View>
+
+                            {/* DRAWER */}
+
+                            <Animated.View
+                                style={[
+                                    styles.drawer,
+                                    {
+                                        transform: [
+                                            {
+                                                translateX:
+                                                    drawerTranslateX,
+                                            },
+                                        ],
+                                    },
+                                ]}
+                            >
+
+                                <SafeAreaView
+                                    style={
+                                        styles.drawerSafeArea
+                                    }
+                                    edges={[
+                                        'bottom',
+                                    ]}
+                                >
+
+                                    {/* DRAWER HEADER */}
+
+                                    <View
+                                        style={
+                                            styles.drawerHeader
+                                        }
+                                    >
+
+                                        <View
+                                            style={
+                                                styles.drawerBrand
+                                            }
+                                        >
+
+                                            <View
+                                                style={
+                                                    styles.drawerLogo
+                                                }
+                                            >
+
+                                                <Text
+                                                    style={
+                                                        styles.takaIcon
+                                                    }
+                                                >
+                                                    ৳
+                                                </Text>
+
+                                            </View>
+
+                                            <View>
+
+                                                <Text
+                                                    style={
+                                                        styles.drawerAppName
+                                                    }
+                                                >
+                                                    {t.appName}
+                                                </Text>
+
+                                                <Text
+                                                    style={
+                                                        styles.drawerSubtitle
+                                                    }
+                                                >
+                                                    {
+                                                        t.memberPanel
+                                                    }
+                                                </Text>
+
+                                            </View>
+
+                                        </View>
+
+                                        <Pressable
+                                            onPress={() =>
+                                                closeMenu()
+                                            }
+                                            style={({
+                                                pressed,
+                                            }) => [
+
+                                                    styles.closeButton,
+
+                                                    pressed &&
+                                                    styles.closeButtonPressed,
+
+                                                ]}
+                                        >
+
+                                            <Ionicons
+                                                name="close"
+                                                size={23}
+                                                color="#0f172a"
+                                            />
+
+                                        </Pressable>
+
+                                    </View>
+
+                                    {/* MENU */}
+
+                                    <ScrollView
+                                        showsVerticalScrollIndicator={
+                                            false
+                                        }
+                                        contentContainerStyle={
+                                            styles.menuScroll
+                                        }
+                                    >
+
+                                        {/* DASHBOARD */}
+
+                                        <View
+                                            style={
+                                                styles.firstMenuItem
+                                            }
+                                        >
+
+                                            <MenuItem
+                                                icon="grid-outline"
+                                                label={
+                                                    t.dashboard
+                                                }
+                                                onPress={() =>
+                                                    handleMenuPress(
+                                                        '/member/dashboard'
+                                                    )
+                                                }
+                                            />
+
+                                        </View>
+
+                                        {/* PROFILE */}
+
+                                        <MenuItem
+                                            icon="person-outline"
+                                            label={
+                                                t.profile
+                                            }
+                                            onPress={() =>
+                                                handleMenuPress(
+                                                    '/member/profile'
+                                                )
+                                            }
+                                        />
+
+                                        {/* CHANGE GMAIL */}
+
+                                        <MenuItem
+                                            icon="mail-outline"
+                                            label={
+                                                t.changeGmail
+                                            }
+                                            onPress={() =>
+                                                handleMenuPress(
+                                                    '/member/change-email'
+                                                )
+                                            }
+                                        />
+
+                                        {/* CHANGE PIN */}
+
+                                        <MenuItem
+                                            icon="lock-closed-outline"
+                                            label={
+                                                t.changePin
+                                            }
+                                            active
+                                            onPress={() =>
+                                                closeMenu()
+                                            }
+                                        />
+
+                                        <MenuDivider />
+
+                                        {/* WEEKLY DEPOSIT */}
+
+                                        <MenuItem
+                                            icon="cash-outline"
+                                            label={
+                                                t.weeklyDeposit
+                                            }
+                                            onPress={() =>
+                                                handleMenuPress(
+                                                    '/member/deposit'
+                                                )
+                                            }
+                                        />
+
+                                        {/* PENDING DEPOSIT */}
+
+                                        <MenuItem
+                                            icon="hourglass-outline"
+                                            label={
+                                                t.pendingDeposit
+                                            }
+                                            onPress={() =>
+                                                handleMenuPress(
+                                                    '/member/pending-deposit'
+                                                )
+                                            }
+                                        />
+
+                                        {/* WEEKLY HISTORY */}
+
+                                        <MenuItem
+                                            icon="time-outline"
+                                            label={
+                                                t.weeklyHistory
+                                            }
+                                            onPress={() =>
+                                                handleMenuPress(
+                                                    '/member/deposit-history'
+                                                )
+                                            }
+                                        />
+
+                                        <MenuDivider />
+
+                                        {/* LANGUAGE */}
+
+                                        <View
+                                            style={
+                                                styles.languageMenu
+                                            }
+                                        >
+
+                                            <View
+                                                style={
+                                                    styles.menuItemLeft
+                                                }
+                                            >
+
+                                                <Ionicons
+                                                    name="language-outline"
+                                                    size={20}
+                                                    color="#475569"
+                                                />
+
+                                                <Text
+                                                    style={
+                                                        styles.menuItemText
+                                                    }
+                                                >
+                                                    {t.language}
+                                                </Text>
+
+                                            </View>
+
+                                            <View
+                                                style={
+                                                    styles.languageOptions
+                                                }
+                                            >
+
+                                                {/* BANGLA */}
+
+                                                <Pressable
+                                                    onPress={() =>
+                                                        changeLanguage(
+                                                            'bn'
+                                                        )
+                                                    }
+                                                    style={
+                                                        language ===
+                                                            'bn'
+                                                            ? styles.languageOptionActive
+                                                            : styles.languageOption
+                                                    }
+                                                >
+
+                                                    <Text
+                                                        style={
+                                                            language ===
+                                                                'bn'
+                                                                ? styles.languageOptionActiveText
+                                                                : styles.languageOptionText
+                                                        }
+                                                    >
+                                                        {t.bangla}
+                                                    </Text>
+
+                                                </Pressable>
+
+                                                {/* ENGLISH */}
+
+                                                <Pressable
+                                                    onPress={() =>
+                                                        changeLanguage(
+                                                            'en'
+                                                        )
+                                                    }
+                                                    style={
+                                                        language ===
+                                                            'en'
+                                                            ? styles.languageOptionActive
+                                                            : styles.languageOption
+                                                    }
+                                                >
+
+                                                    <Text
+                                                        style={
+                                                            language ===
+                                                                'en'
+                                                                ? styles.languageOptionActiveText
+                                                                : styles.languageOptionText
+                                                        }
+                                                    >
+                                                        EN
+                                                    </Text>
+
+                                                </Pressable>
+
+                                            </View>
+
+                                        </View>
+
+                                        <MenuDivider />
+
+                                        {/* LOGOUT */}
+
+                                        <Pressable
+                                            onPress={
+                                                handleLogout
+                                            }
+                                            style={({
+                                                pressed,
+                                            }) => [
+
+                                                    styles.logoutButton,
+
+                                                    pressed &&
+                                                    styles.logoutButtonPressed,
+
+                                                ]}
+                                        >
+
+                                            <Ionicons
+                                                name="log-out-outline"
+                                                size={21}
+                                                color="#dc2626"
+                                            />
+
+                                            <Text
+                                                style={
+                                                    styles.logoutText
+                                                }
+                                            >
+                                                {t.logout}
+                                            </Text>
+
+                                        </Pressable>
+
+                                    </ScrollView>
+
+                                </SafeAreaView>
+
+                            </Animated.View>
+
+                        </View>
+
+                    )}
 
                 </View>
 
@@ -1056,11 +1824,119 @@ export default function ChangePinScreen() {
 }
 
 /* ========================================================================== */
+/* MENU ITEM                                                                  */
+/* ========================================================================== */
+
+type MenuItemProps = {
+    icon: React.ComponentProps<
+        typeof Ionicons
+    >['name'];
+
+    label: string;
+
+    active?: boolean;
+
+    onPress: () => void;
+};
+
+function MenuItem({
+    icon,
+    label,
+    active = false,
+    onPress,
+}: MenuItemProps) {
+
+    return (
+
+        <Pressable
+            onPress={onPress}
+        >
+
+            {({ pressed }) => {
+
+                const isHighlighted =
+                    active ||
+                    pressed;
+
+                return (
+
+                    <View
+                        style={[
+                            styles.menuItem,
+
+                            isHighlighted &&
+                            styles.menuItemActive,
+                        ]}
+                    >
+
+                        <View
+                            style={
+                                styles.menuItemIconContainer
+                            }
+                        >
+
+                            <Ionicons
+                                name={icon}
+                                size={20}
+                                color={
+                                    isHighlighted
+                                        ? '#ffffff'
+                                        : '#475569'
+                                }
+                            />
+
+                        </View>
+
+                        <Text
+                            style={[
+                                styles.menuItemText,
+
+                                isHighlighted &&
+                                styles.menuItemTextActive,
+                            ]}
+                        >
+                            {label}
+                        </Text>
+
+                    </View>
+
+                );
+
+            }}
+
+        </Pressable>
+
+    );
+}
+
+/* ========================================================================== */
+/* MENU DIVIDER                                                               */
+/* ========================================================================== */
+
+function MenuDivider() {
+
+    return (
+
+        <View
+            style={
+                styles.menuDivider
+            }
+        />
+
+    );
+
+}
+
+/* ========================================================================== */
 /* STYLES                                                                     */
 /* ========================================================================== */
 
 const styles =
     StyleSheet.create({
+
+        /* ================================================================== */
+        /* MAIN                                                                */
+        /* ================================================================== */
 
         safeArea: {
             flex: 1,
@@ -1078,13 +1954,14 @@ const styles =
                 '#f6f8fb',
         },
 
-        /* ------------------------------------------------------------------ */
+        /* ================================================================== */
         /* HEADER                                                              */
-        /* ------------------------------------------------------------------ */
+        /* ================================================================== */
 
         header: {
-            height: 72,
+            minHeight: 76,
             paddingHorizontal: 18,
+            paddingVertical: 12,
             backgroundColor:
                 '#ffffff',
             borderBottomWidth: 1,
@@ -1094,54 +1971,79 @@ const styles =
                 'row',
             alignItems:
                 'center',
+            justifyContent:
+                'space-between',
         },
 
-        backButton: {
+        headerLeft: {
+            flexDirection:
+                'row',
+            alignItems:
+                'center',
+            flex: 1,
+        },
+
+        menuButton: {
             width: 42,
             height: 42,
             borderRadius: 11,
+            backgroundColor:
+                '#f1f5f9',
             alignItems:
                 'center',
             justifyContent:
                 'center',
+            marginRight: 11,
         },
 
-        backText: {
-            fontSize: 35,
-            lineHeight: 38,
-            color: '#0f172a',
-            fontWeight: '300',
+        menuButtonPressed: {
+            opacity: 0.65,
         },
 
-        headerTextContainer: {
-            flex: 1,
-            marginLeft: 7,
-        },
-
-        headerTitle: {
-            fontSize: 15,
+        appName: {
+            fontSize: 16,
             fontWeight: '800',
             color: '#0f172a',
         },
 
-        headerSubtitle: {
+        appSubtitle: {
             marginTop: 2,
             fontSize: 10,
             color: '#64748b',
         },
 
-        /* ------------------------------------------------------------------ */
+        memberInfo: {
+            maxWidth: 145,
+            alignItems: 'flex-end',
+        },
+
+
+        memberName: {
+            fontSize: 13,
+            fontWeight: '800',
+            color: '#0f172a',
+        },
+
+
+        memberId: {
+            marginTop: 2,
+            fontSize: 10,
+            color: '#64748b',
+        },
+
+        /* ================================================================== */
         /* CONTENT                                                             */
-        /* ------------------------------------------------------------------ */
+        /* ================================================================== */
 
         content: {
             paddingHorizontal: 18,
             paddingTop: 20,
+            paddingBottom: 20,
         },
 
-        /* ------------------------------------------------------------------ */
+        /* ================================================================== */
         /* SECURITY CARD                                                       */
-        /* ------------------------------------------------------------------ */
+        /* ================================================================== */
 
         securityCard: {
             backgroundColor:
@@ -1164,13 +2066,6 @@ const styles =
                 'center',
         },
 
-        securityIconText: {
-            color: '#ffffff',
-            fontSize: 18,
-            letterSpacing: 2,
-            fontWeight: '900',
-        },
-
         securityTitle: {
             marginTop: 13,
             color: '#ffffff',
@@ -1186,9 +2081,9 @@ const styles =
                 'center',
         },
 
-        /* ------------------------------------------------------------------ */
+        /* ================================================================== */
         /* FORM                                                                */
-        /* ------------------------------------------------------------------ */
+        /* ================================================================== */
 
         formCard: {
             marginTop: 14,
@@ -1227,28 +2122,24 @@ const styles =
         input: {
             flex: 1,
             minHeight: 48,
+            paddingVertical: 0,
             fontSize: 15,
             color: '#0f172a',
+            letterSpacing: 1,
         },
 
-        showButton: {
+        eyeButton: {
+            width: 48,
             height: 48,
-            paddingHorizontal: 13,
             alignItems:
                 'center',
             justifyContent:
                 'center',
         },
 
-        showText: {
-            fontSize: 10,
-            fontWeight: '800',
-            color: '#475569',
-        },
-
-        /* ------------------------------------------------------------------ */
+        /* ================================================================== */
         /* INFORMATION                                                         */
-        /* ------------------------------------------------------------------ */
+        /* ================================================================== */
 
         infoBox: {
             marginTop: 2,
@@ -1272,9 +2163,9 @@ const styles =
             color: '#64748b',
         },
 
-        /* ------------------------------------------------------------------ */
+        /* ================================================================== */
         /* BUTTON                                                              */
-        /* ------------------------------------------------------------------ */
+        /* ================================================================== */
 
         changeButton: {
             minHeight: 50,
@@ -1310,39 +2201,280 @@ const styles =
             gap: 9,
         },
 
-        /* ------------------------------------------------------------------ */
-        /* BACK TO DASHBOARD                                                   */
-        /* ------------------------------------------------------------------ */
+        bottomSpacing: {
+            height: 18,
+        },
 
-        backDashboardButton: {
-            minHeight: 45,
-            marginTop: 11,
-            borderRadius: 11,
+        /* ================================================================== */
+        /* DRAWER                                                              */
+        /* ================================================================== */
+
+        menuOverlay: {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 1000,
+            elevation: 1000,
+        },
+
+        overlayBackground: {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor:
+                'rgba(15, 23, 42, 0.42)',
+        },
+
+        overlayPressable: {
+            flex: 1,
+        },
+
+        drawer: {
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            left: 0,
+            width: 315,
+            maxWidth: '86%',
             backgroundColor:
                 '#ffffff',
-            borderWidth: 1,
-            borderColor:
+
+            shadowColor:
+                '#000000',
+
+            shadowOpacity:
+                0.16,
+
+            shadowRadius:
+                15,
+
+            shadowOffset: {
+                width: 4,
+                height: 0,
+            },
+
+            elevation: 12,
+        },
+
+        drawerSafeArea: {
+            flex: 1,
+        },
+
+        drawerHeader: {
+            minHeight: 76,
+            paddingHorizontal: 17,
+            borderBottomWidth: 1,
+            borderBottomColor:
                 '#e2e8f0',
             flexDirection:
                 'row',
             alignItems:
                 'center',
             justifyContent:
+                'space-between',
+        },
+
+        drawerBrand: {
+            flexDirection:
+                'row',
+            alignItems:
                 'center',
         },
 
-        backDashboardText: {
-            fontSize: 25,
-            lineHeight: 28,
-            color: '#475569',
-            fontWeight: '300',
+        drawerLogo: {
+            width: 43,
+            height: 43,
+            borderRadius: 12,
+            backgroundColor:
+                '#0f172a',
+            alignItems:
+                'center',
+            justifyContent:
+                'center',
+            marginRight: 10,
         },
 
-        backDashboardTextLabel: {
-            marginLeft: 6,
-            fontSize: 11,
+        takaIcon: {
+            fontSize: 24,
+            fontWeight: '900',
+            color: '#ffffff',
+            lineHeight: 28,
+        },
+
+        drawerAppName: {
+            fontSize: 14,
+            fontWeight: '800',
+            color: '#0f172a',
+        },
+
+        drawerSubtitle: {
+            marginTop: 2,
+            fontSize: 10,
+            color: '#64748b',
+        },
+
+        closeButton: {
+            width: 38,
+            height: 38,
+            borderRadius: 10,
+            backgroundColor:
+                '#f1f5f9',
+            alignItems:
+                'center',
+            justifyContent:
+                'center',
+        },
+
+        closeButtonPressed: {
+            opacity: 0.65,
+        },
+
+        /* ================================================================== */
+        /* COMPACT MENU                                                        */
+        /* ================================================================== */
+
+        menuScroll: {
+            paddingHorizontal: 9,
+            paddingBottom: 15,
+        },
+
+        firstMenuItem: {
+            marginTop: 7,
+        },
+
+        menuItem: {
+            minHeight: 46,
+            borderRadius: 10,
+            paddingHorizontal: 12,
+            flexDirection:
+                'row',
+            alignItems:
+                'center',
+            marginBottom: 2,
+            overflow: 'hidden',
+        },
+
+        menuItemActive: {
+            backgroundColor:
+                '#0f172a',
+        },
+
+        menuItemIconContainer: {
+            width: 20,
+            height: 20,
+            alignItems:
+                'center',
+            justifyContent:
+                'center',
+        },
+
+        menuItemText: {
+            marginLeft: 12,
+            fontSize: 12,
             fontWeight: '700',
-            color: '#475569',
+            flex: 1,
+            color: '#334155',
+        },
+
+        menuItemTextActive: {
+            color: '#ffffff',
+        },
+
+        menuDivider: {
+            height: 1,
+            backgroundColor:
+                '#e2e8f0',
+            marginVertical: 10,
+            marginHorizontal: 7,
+        },
+
+        /* ================================================================== */
+        /* LANGUAGE                                                            */
+        /* ================================================================== */
+
+        languageMenu: {
+            minHeight: 55,
+            paddingHorizontal: 12,
+            flexDirection:
+                'row',
+            alignItems:
+                'center',
+            justifyContent:
+                'space-between',
+        },
+
+        menuItemLeft: {
+            flexDirection:
+                'row',
+            alignItems:
+                'center',
+            flex: 1,
+        },
+
+        languageOptions: {
+            flexDirection:
+                'row',
+            padding: 3,
+            borderRadius: 9,
+            backgroundColor:
+                '#f1f5f9',
+        },
+
+        languageOption: {
+            paddingHorizontal: 8,
+            paddingVertical: 6,
+            borderRadius: 7,
+        },
+
+        languageOptionActive: {
+            paddingHorizontal: 8,
+            paddingVertical: 5,
+            borderRadius: 7,
+            backgroundColor:
+                '#0f172a',
+        },
+
+        languageOptionText: {
+            fontSize: 9,
+            fontWeight: '800',
+            color: '#64748b',
+        },
+
+        languageOptionActiveText: {
+            fontSize: 9,
+            fontWeight: '800',
+            color: '#ffffff',
+        },
+
+        /* ================================================================== */
+        /* LOGOUT                                                              */
+        /* ================================================================== */
+
+        logoutButton: {
+            minHeight: 46,
+            borderRadius: 10,
+            paddingHorizontal: 12,
+            flexDirection:
+                'row',
+            alignItems:
+                'center',
+            backgroundColor:
+                '#fef2f2',
+        },
+
+        logoutButtonPressed: {
+            opacity: 0.65,
+        },
+
+        logoutText: {
+            marginLeft: 12,
+            fontSize: 12,
+            fontWeight: '800',
+            color: '#dc2626',
         },
 
     });

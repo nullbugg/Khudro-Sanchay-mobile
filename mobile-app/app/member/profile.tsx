@@ -1,10 +1,13 @@
 import React, {
     useEffect,
+    useRef,
     useState,
 } from 'react';
 
 import {
     ActivityIndicator,
+    Animated,
+    Easing,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -12,6 +15,8 @@ import {
     TextInput,
     View,
 } from 'react-native';
+
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 import {
     SafeAreaView,
@@ -22,6 +27,7 @@ import {
 } from 'expo-router';
 
 import {
+    clearCurrentMember,
     getCurrentMember,
     updateMemberProfile,
     Member,
@@ -30,6 +36,7 @@ import {
 import {
     getMemberLanguage,
     MemberLanguage,
+    setMemberLanguage,
 } from '../../lib/member-language';
 
 /* ========================================================================== */
@@ -38,8 +45,41 @@ import {
 
 const translations = {
     bn: {
+        appName:
+            'ক্ষুদ্র সঞ্চয়',
+
+        memberPanel:
+            'সমবায় সমিতি',
+
         profile:
             'প্রোফাইল',
+
+        dashboard:
+            'ড্যাশবোর্ড',
+
+        changeGmail:
+            'জি-মেইল পরিবর্তন',
+
+        changePin:
+            'পিন পরিবর্তন',
+
+        weeklyDeposit:
+            'সাপ্তাহিক জমা',
+
+        pendingDeposit:
+            'অপেক্ষমাণ জমা',
+
+        weeklyHistory:
+            'সাপ্তাহিক ইতিহাস',
+
+        language:
+            'ভাষা নির্বাচন করুন',
+
+        bangla:
+            'বাংলা',
+
+        logout:
+            'লগআউট',
 
         personalInformation:
             'ব্যক্তিগত তথ্য',
@@ -49,6 +89,9 @@ const translations = {
 
         phone:
             'মোবাইল নম্বর',
+
+        gmail:
+            'জিমেইল',
 
         joinDate:
             'যোগদানের তারিখ',
@@ -60,25 +103,25 @@ const translations = {
             'স্ট্যাটাস',
 
         active:
-            'ACTIVE',
+            'সক্রিয়',
 
         edit:
-            'Edit করুন',
+            'সম্পাদনা',
 
         save:
-            'Save Changes',
+            'সংরক্ষণ করুন',
 
         cancel:
-            'Cancel',
+            'বাতিল',
 
         saving:
-            'Saving...',
+            'সংরক্ষণ হচ্ছে...',
 
         loading:
             'তথ্য লোড হচ্ছে...',
 
         memberNotFound:
-            'Member information পাওয়া যায়নি',
+            'সদস্যের তথ্য পাওয়া যায়নি',
 
         back:
             'ফিরে যান',
@@ -91,11 +134,47 @@ const translations = {
 
         somethingWrong:
             'কিছু সমস্যা হয়েছে',
+
+        profileUpdated:
+            'প্রোফাইল আপডেট করা যায়নি',
     },
 
     en: {
+        appName:
+            'ক্ষুদ্র সঞ্চয়',
+
+        memberPanel:
+            'সমবায় সমিতি',
+
         profile:
             'Profile',
+
+        dashboard:
+            'Dashboard',
+
+        changeGmail:
+            'Change Gmail',
+
+        changePin:
+            'Change PIN',
+
+        weeklyDeposit:
+            'Weekly Deposit',
+
+        pendingDeposit:
+            'Pending Deposit',
+
+        weeklyHistory:
+            'Weekly Deposit History',
+
+        language:
+            'Select Language',
+
+        bangla:
+            'বাংলা',
+
+        logout:
+            'Logout',
 
         personalInformation:
             'Personal Information',
@@ -105,6 +184,9 @@ const translations = {
 
         phone:
             'Phone Number',
+
+        gmail:
+            'Gmail',
 
         joinDate:
             'Join Date',
@@ -116,7 +198,7 @@ const translations = {
             'Status',
 
         active:
-            'ACTIVE',
+            'Active',
 
         edit:
             'Edit',
@@ -147,8 +229,95 @@ const translations = {
 
         somethingWrong:
             'Something went wrong',
+
+        profileUpdated:
+            'Profile could not be updated',
     },
 };
+
+/* ========================================================================== */
+/* MENU ITEM                                                                  */
+/* ========================================================================== */
+
+type MenuItemProps = {
+    icon: React.ComponentProps<
+        typeof Ionicons
+    >['name'];
+
+    label: string;
+
+    active?: boolean;
+
+    onPress: () => void;
+};
+
+function MenuItem({
+    icon,
+    label,
+    active = false,
+    onPress,
+}: MenuItemProps) {
+    return (
+        <Pressable
+            onPress={onPress}
+        >
+            {({ pressed }) => {
+                const isHighlighted =
+                    active || pressed;
+
+                return (
+                    <View
+                        style={[
+                            styles.menuItem,
+                            isHighlighted &&
+                            styles.menuItemActive,
+                        ]}
+                    >
+                        <View
+                            style={
+                                styles.menuItemIconContainer
+                            }
+                        >
+                            <Ionicons
+                                name={icon}
+                                size={20}
+                                color={
+                                    isHighlighted
+                                        ? '#ffffff'
+                                        : '#475569'
+                                }
+                            />
+                        </View>
+
+                        <Text
+                            style={[
+                                styles.menuItemText,
+                                isHighlighted &&
+                                styles.menuItemTextActive,
+                            ]}
+                        >
+                            {label}
+                        </Text>
+                    </View>
+                );
+            }}
+        </Pressable>
+    );
+}
+
+/* ========================================================================== */
+/* MENU DIVIDER                                                               */
+/* ========================================================================== */
+
+function MenuDivider() {
+    return (
+        <View
+            style={
+                styles.menuDivider
+            }
+        />
+    );
+}
 
 /* ========================================================================== */
 /* SCREEN                                                                     */
@@ -200,11 +369,35 @@ export default function MemberProfile() {
         setError,
     ] = useState('');
 
+    /* ---------------------------------------------------------------------- */
+    /* DRAWER STATE                                                            */
+    /* ---------------------------------------------------------------------- */
+
+    const [
+        menuMounted,
+        setMenuMounted,
+    ] = useState(false);
+
+    const [
+        menuOpen,
+        setMenuOpen,
+    ] = useState(false);
+
+    const drawerTranslateX =
+        useRef(
+            new Animated.Value(-330)
+        ).current;
+
+    const overlayOpacity =
+        useRef(
+            new Animated.Value(0)
+        ).current;
+
     const t =
         translations[language];
 
     /* ---------------------------------------------------------------------- */
-    /* Initial Load                                                            */
+    /* INITIAL LOAD                                                            */
     /* ---------------------------------------------------------------------- */
 
     useEffect(() => {
@@ -237,7 +430,9 @@ export default function MemberProfile() {
             ) {
                 setError(
                     result.message ||
-                    t.memberNotFound
+                    translations[
+                        savedLanguage
+                    ].memberNotFound
                 );
 
                 return;
@@ -274,7 +469,151 @@ export default function MemberProfile() {
     }
 
     /* ---------------------------------------------------------------------- */
-    /* Edit                                                                     */
+    /* OPEN MENU                                                               */
+    /* ---------------------------------------------------------------------- */
+
+    const openMenu = () => {
+        if (menuMounted) {
+            return;
+        }
+
+        setMenuMounted(true);
+        setMenuOpen(true);
+
+        drawerTranslateX.setValue(-330);
+        overlayOpacity.setValue(0);
+
+        requestAnimationFrame(() => {
+            Animated.parallel([
+                Animated.timing(
+                    drawerTranslateX,
+                    {
+                        toValue: 0,
+                        duration: 230,
+                        easing: Easing.out(
+                            Easing.cubic
+                        ),
+                        useNativeDriver: true,
+                    }
+                ),
+
+                Animated.timing(
+                    overlayOpacity,
+                    {
+                        toValue: 1,
+                        duration: 180,
+                        easing: Easing.out(
+                            Easing.quad
+                        ),
+                        useNativeDriver: true,
+                    }
+                ),
+            ]).start();
+        });
+    };
+
+    /* ---------------------------------------------------------------------- */
+    /* CLOSE MENU                                                              */
+    /* ---------------------------------------------------------------------- */
+
+    const closeMenu = (
+        callback?: () => void
+    ) => {
+        if (!menuMounted) {
+            callback?.();
+            return;
+        }
+
+        Animated.parallel([
+            Animated.timing(
+                drawerTranslateX,
+                {
+                    toValue: -330,
+                    duration: 230,
+                    easing: Easing.in(
+                        Easing.cubic
+                    ),
+                    useNativeDriver: true,
+                }
+            ),
+
+            Animated.timing(
+                overlayOpacity,
+                {
+                    toValue: 0,
+                    duration: 180,
+                    easing: Easing.in(
+                        Easing.quad
+                    ),
+                    useNativeDriver: true,
+                }
+            ),
+        ]).start(() => {
+            setMenuOpen(false);
+            setMenuMounted(false);
+
+            callback?.();
+        });
+    };
+
+    /* ---------------------------------------------------------------------- */
+    /* MENU PRESS                                                              */
+    /* ---------------------------------------------------------------------- */
+
+    const handleMenuPress = (
+        route?: string
+    ) => {
+        if (!route) {
+            closeMenu();
+            return;
+        }
+
+        closeMenu(() => {
+            router.push(
+                route as any
+            );
+        });
+    };
+
+    /* ---------------------------------------------------------------------- */
+    /* LANGUAGE                                                                */
+    /* ---------------------------------------------------------------------- */
+
+    const changeLanguage = async (
+        newLanguage: MemberLanguage
+    ) => {
+        setLanguage(
+            newLanguage
+        );
+
+        try {
+            await setMemberLanguage(
+                newLanguage
+            );
+        } catch (error) {
+            console.error(
+                'Member language save error:',
+                error
+            );
+        }
+    };
+
+    /* ---------------------------------------------------------------------- */
+    /* LOGOUT                                                                  */
+    /* ---------------------------------------------------------------------- */
+
+    const handleLogout = () => {
+        closeMenu(() => {
+            clearCurrentMember();
+
+            router.replace(
+                '/member/login'
+            );
+        });
+    };
+
+    /* ---------------------------------------------------------------------- */
+    /* EDIT                                                                    */
     /* ---------------------------------------------------------------------- */
 
     function startEditing() {
@@ -312,7 +651,7 @@ export default function MemberProfile() {
     }
 
     /* ---------------------------------------------------------------------- */
-    /* Save                                                                     */
+    /* SAVE                                                                    */
     /* ---------------------------------------------------------------------- */
 
     async function saveProfile() {
@@ -379,7 +718,7 @@ export default function MemberProfile() {
             if (!result.success) {
                 setError(
                     result.message ||
-                    'Profile update করা যায়নি'
+                    t.profileUpdated
                 );
 
                 return;
@@ -426,7 +765,7 @@ export default function MemberProfile() {
             setError(
                 error instanceof Error
                     ? error.message
-                    : 'Profile update করা যায়নি'
+                    : t.profileUpdated
             );
         } finally {
             setSaving(false);
@@ -434,7 +773,7 @@ export default function MemberProfile() {
     }
 
     /* ---------------------------------------------------------------------- */
-    /* Loading                                                                  */
+    /* LOADING                                                                 */
     /* ---------------------------------------------------------------------- */
 
     if (loading) {
@@ -465,7 +804,7 @@ export default function MemberProfile() {
     }
 
     /* ---------------------------------------------------------------------- */
-    /* Error                                                                     */
+    /* ERROR                                                                   */
     /* ---------------------------------------------------------------------- */
 
     if (!member) {
@@ -517,7 +856,7 @@ export default function MemberProfile() {
     }
 
     /* ---------------------------------------------------------------------- */
-    /* Main                                                                     */
+    /* MAIN                                                                    */
     /* ---------------------------------------------------------------------- */
 
     return (
@@ -535,46 +874,72 @@ export default function MemberProfile() {
                 <View
                     style={styles.header}
                 >
-                    <Pressable
-                        onPress={() =>
-                            router.back()
-                        }
-                        style={
-                            styles.backIconButton
-                        }
-                        hitSlop={8}
-                    >
-                        <Text
-                            style={
-                                styles.backIcon
-                            }
-                        >
-                            ‹
-                        </Text>
-                    </Pressable>
-
                     <View
                         style={
-                            styles.headerTitleContainer
+                            styles.headerLeft
                         }
                     >
-                        <Text
-                            style={
-                                styles.headerTitle
+                        <Pressable
+                            onPress={
+                                openMenu
                             }
+                            style={({ pressed }) => [
+                                styles.menuButton,
+                                pressed &&
+                                styles.menuButtonPressed,
+                            ]}
                         >
-                            {t.profile}
-                        </Text>
+                            <Ionicons
+                                name="menu-outline"
+                                size={24}
+                                color="#0f172a"
+                            />
+                        </Pressable>
+
+                        <View>
+                            <Text
+                                style={
+                                    styles.appName
+                                }
+                            >
+                                {t.appName}
+                            </Text>
+
+                            <Text
+                                style={
+                                    styles.appSubtitle
+                                }
+                            >
+                                {t.memberPanel}
+                            </Text>
+                        </View>
+                    </View>
+
+                    <View
+                        style={styles.memberInfo}
+                    >
 
                         <Text
-                            style={
-                                styles.headerSubtitle
-                            }
+                            style={styles.memberName}
+                            numberOfLines={1}
                         >
-                            ক্ষুদ্র সঞ্চয়
+                            {member.memberName}
                         </Text>
+
+
+                        <Text
+                            style={styles.memberId}
+                        >
+                            {t.memberId}: {member.memberId}
+                        </Text>
+
                     </View>
+
                 </View>
+
+                {/* ====================================================== */}
+                {/* CONTENT                                                 */}
+                {/* ====================================================== */}
 
                 <ScrollView
                     showsVerticalScrollIndicator={
@@ -585,231 +950,176 @@ export default function MemberProfile() {
                     }
                 >
 
-                    {/* ================================================== */}
-                    {/* PROFILE HEADER                                     */}
-                    {/* ================================================== */}
-
                     <View
                         style={
                             styles.profileHeader
                         }
                     >
-                        <View
-                            style={
-                                styles.avatar
-                            }
-                        >
-                            <Text
-                                style={
-                                    styles.avatarText
-                                }
-                            >
-                                {getInitial(
-                                    member.memberName
-                                )}
-                            </Text>
-                        </View>
-
-                        <Text
-                            style={
-                                styles.profileName
-                            }
-                        >
-                            {member.memberName}
-                        </Text>
-
-                        <Text
-                            style={
-                                styles.profileMemberId
-                            }
-                        >
-                            {member.memberId}
-                        </Text>
 
                         <View
                             style={
-                                styles.statusBadge
+                                styles.profileIconContainer
                             }
                         >
+
                             <View
                                 style={
-                                    styles.statusDot
-                                }
-                            />
-
-                            <Text
-                                style={
-                                    styles.statusText
+                                    styles.profileIcon
                                 }
                             >
-                                {member.status ||
-                                    t.active}
-                            </Text>
+
+                                <Ionicons
+                                    name="person"
+                                    size={30}
+                                    color="#ffffff"
+                                />
+
+                            </View>
+
                         </View>
-                    </View>
 
-                    {/* ================================================== */}
-                    {/* PERSONAL INFORMATION                               */}
-                    {/* ================================================== */}
-
-                    <View
-                        style={
-                            styles.sectionHeader
-                        }
-                    >
                         <Text
                             style={
-                                styles.sectionTitle
+                                styles.pageTitle
                             }
                         >
-                            {
-                                t.personalInformation
-                            }
+                            {t.profile}
                         </Text>
 
-                        {!editing && (
-                            <Pressable
-                                onPress={
-                                    startEditing
-                                }
-                                style={
-                                    styles.editButton
-                                }
-                            >
-                                <Text
-                                    style={
-                                        styles.editButtonText
-                                    }
-                                >
-                                    {t.edit}
-                                </Text>
-                            </Pressable>
-                        )}
-                    </View>
-
-                    <View
-                        style={
-                            styles.card
-                        }
-                    >
-
-                        {/* ------------------------------------------------ */}
-                        {/* Name                                             */}
-                        {/* ------------------------------------------------ */}
-
-                        <ProfileField
-                            label={
-                                t.memberName
-                            }
-                            value={
-                                editing
-                                    ? name
-                                    : member.memberName
-                            }
-                            editable={
-                                editing
-                            }
-                            onChangeText={
-                                setName
-                            }
-                        />
-
-                        <View
+                        <Text
                             style={
-                                styles.fieldDivider
+                                styles.pageSubtitle
                             }
-                        />
-
-                        {/* ------------------------------------------------ */}
-                        {/* Phone                                            */}
-                        {/* ------------------------------------------------ */}
-
-                        <ProfileField
-                            label={
-                                t.phone
-                            }
-                            value={
-                                editing
-                                    ? phone
-                                    : member.phone
-                            }
-                            editable={
-                                editing
-                            }
-                            keyboardType="phone-pad"
-                            onChangeText={
-                                setPhone
-                            }
-                        />
-
-                        <View
-                            style={
-                                styles.fieldDivider
-                            }
-                        />
-
-                        {/* ------------------------------------------------ */}
-                        {/* Join Date                                         */}
-                        {/* ------------------------------------------------ */}
-
-                        <ProfileField
-                            label={
-                                t.joinDate
-                            }
-                            value={
-                                formatDate(
-                                    member.joinDate,
-                                    language
-                                )
-                            }
-                            editable={false}
-                        />
-
-                        {/* ------------------------------------------------ */}
-                        {/* Member ID                                         */}
-                        {/* ------------------------------------------------ */}
-
-                        <View
-                            style={
-                                styles.fieldDivider
-                            }
-                        />
-
-                        <ProfileField
-                            label={
-                                t.memberId
-                            }
-                            value={
-                                member.memberId
-                            }
-                            editable={false}
-                        />
-
-                        {/* ------------------------------------------------ */}
-                        {/* Status                                            */}
-                        {/* ------------------------------------------------ */}
-
-                        <View
-                            style={
-                                styles.fieldDivider
-                            }
-                        />
-
-                        <ProfileField
-                            label={
-                                t.status
-                            }
-                            value={
-                                member.status ||
-                                t.active
-                            }
-                            editable={false}
-                        />
+                        >
+                            {t.personalInformation}
+                        </Text>
 
                     </View>
 
                     {/* ================================================== */}
-                    {/* EDIT ACTIONS                                        */}
+                    {/* NAME                                                 */}
+                    {/* ================================================== */}
+
+                    <ProfileInfoCard
+                        label={
+                            t.memberName
+                        }
+                        value={
+                            editing
+                                ? name
+                                : member.memberName
+                        }
+                        editable={
+                            editing
+                        }
+                        editing={
+                            editing
+                        }
+                        onEdit={
+                            startEditing
+                        }
+                        onChangeText={
+                            setName
+                        }
+                        icon="person-outline"
+                    />
+
+                    {/* ================================================== */}
+                    {/* PHONE                                                */}
+                    {/* ================================================== */}
+
+                    <ProfileInfoCard
+                        label={
+                            t.phone
+                        }
+                        value={
+                            editing
+                                ? phone
+                                : member.phone
+                        }
+                        editable={
+                            editing
+                        }
+                        editing={
+                            editing
+                        }
+                        onEdit={
+                            startEditing
+                        }
+                        onChangeText={
+                            setPhone
+                        }
+                        keyboardType="phone-pad"
+                        icon="call-outline"
+                    />
+
+                    {/* ================================================== */}
+                    {/* GMAIL                                                */}
+                    {/* ================================================== */}
+
+                    <ProfileInfoCard
+                        label={
+                            t.gmail
+                        }
+                        value={
+                            member.email
+                        }
+                        editable={false}
+                        icon="mail-outline"
+                    />
+
+                    {/* ================================================== */}
+                    {/* MEMBER ID                                            */}
+                    {/* ================================================== */}
+
+                    <ProfileInfoCard
+                        label={
+                            t.memberId
+                        }
+                        value={
+                            member.memberId
+                        }
+                        editable={false}
+                        icon="card-outline"
+                    />
+
+                    {/* ================================================== */}
+                    {/* JOIN DATE                                            */}
+                    {/* ================================================== */}
+
+                    <ProfileInfoCard
+                        label={
+                            t.joinDate
+                        }
+                        value={
+                            formatDate(
+                                member.joinDate,
+                                language
+                            )
+                        }
+                        editable={false}
+                        icon="calendar-outline"
+                    />
+
+                    {/* ================================================== */}
+                    {/* STATUS                                               */}
+                    {/* ================================================== */}
+
+                    <ProfileInfoCard
+                        label={
+                            t.status
+                        }
+                        value={
+                            member.status ||
+                            t.active
+                        }
+                        editable={false}
+                        icon="checkmark-circle-outline"
+                        status
+                    />
+
+                    {/* ================================================== */}
+                    {/* EDIT ACTIONS                                         */}
                     {/* ================================================== */}
 
                     {editing && (
@@ -818,7 +1128,6 @@ export default function MemberProfile() {
                                 styles.actionContainer
                             }
                         >
-
                             {error !== '' && (
                                 <Text
                                     style={
@@ -841,9 +1150,11 @@ export default function MemberProfile() {
                                     disabled={
                                         saving
                                     }
-                                    style={
-                                        styles.cancelButton
-                                    }
+                                    style={({ pressed }) => [
+                                        styles.cancelButton,
+                                        pressed &&
+                                        styles.buttonPressed,
+                                    ]}
                                 >
                                     <Text
                                         style={
@@ -861,9 +1172,11 @@ export default function MemberProfile() {
                                     disabled={
                                         saving
                                     }
-                                    style={
-                                        styles.saveButton
-                                    }
+                                    style={({ pressed }) => [
+                                        styles.saveButton,
+                                        pressed &&
+                                        styles.buttonPressed,
+                                    ]}
                                 >
                                     {saving ? (
                                         <ActivityIndicator
@@ -900,75 +1213,500 @@ export default function MemberProfile() {
                             height: 35,
                         }}
                     />
-
                 </ScrollView>
+
+                {/* ====================================================== */}
+                {/* DRAWER                                                  */}
+                {/* ====================================================== */}
+
+                {menuMounted && (
+                    <View
+                        style={
+                            styles.menuOverlay
+                        }
+                    >
+                        {/* OVERLAY */}
+
+                        <Animated.View
+                            pointerEvents={
+                                menuOpen
+                                    ? 'auto'
+                                    : 'none'
+                            }
+                            style={[
+                                styles.overlayBackground,
+                                {
+                                    opacity:
+                                        overlayOpacity,
+                                },
+                            ]}
+                        >
+                            <Pressable
+                                style={
+                                    styles.overlayPressable
+                                }
+                                onPress={() =>
+                                    closeMenu()
+                                }
+                            />
+                        </Animated.View>
+
+                        {/* DRAWER */}
+
+                        <Animated.View
+                            style={[
+                                styles.drawer,
+                                {
+                                    transform: [
+                                        {
+                                            translateX:
+                                                drawerTranslateX,
+                                        },
+                                    ],
+                                },
+                            ]}
+                        >
+                            <SafeAreaView
+                                style={
+                                    styles.drawerSafeArea
+                                }
+                                edges={[
+                                    'bottom',
+                                ]}
+                            >
+
+                                {/* DRAWER HEADER */}
+
+                                <View
+                                    style={
+                                        styles.drawerHeader
+                                    }
+                                >
+                                    <View
+                                        style={
+                                            styles.drawerBrand
+                                        }
+                                    >
+                                        <View
+                                            style={
+                                                styles.drawerLogo
+                                            }
+                                        >
+                                            <Text
+                                                style={
+                                                    styles.takaIcon
+                                                }
+                                            >
+                                                ৳
+                                            </Text>
+                                        </View>
+
+                                        <View>
+                                            <Text
+                                                style={
+                                                    styles.drawerAppName
+                                                }
+                                            >
+                                                {
+                                                    t.appName
+                                                }
+                                            </Text>
+
+                                            <Text
+                                                style={
+                                                    styles.drawerSubtitle
+                                                }
+                                            >
+                                                {
+                                                    t.memberPanel
+                                                }
+                                            </Text>
+                                        </View>
+                                    </View>
+
+                                    <Pressable
+                                        onPress={() =>
+                                            closeMenu()
+                                        }
+                                        style={({ pressed }) => [
+                                            styles.closeButton,
+                                            pressed &&
+                                            styles.closeButtonPressed,
+                                        ]}
+                                    >
+                                        <Ionicons
+                                            name="close"
+                                            size={23}
+                                            color="#0f172a"
+                                        />
+                                    </Pressable>
+                                </View>
+
+                                {/* MENU */}
+
+                                <ScrollView
+                                    showsVerticalScrollIndicator={
+                                        false
+                                    }
+                                    contentContainerStyle={
+                                        styles.menuScroll
+                                    }
+                                >
+
+                                    {/* DASHBOARD */}
+
+                                    <View
+                                        style={
+                                            styles.firstMenuItem
+                                        }
+                                    >
+                                        <MenuItem
+                                            icon="grid-outline"
+                                            label={
+                                                t.dashboard
+                                            }
+                                            onPress={() =>
+                                                handleMenuPress(
+                                                    '/member/dashboard'
+                                                )
+                                            }
+                                        />
+                                    </View>
+
+                                    {/* PROFILE */}
+
+                                    <MenuItem
+                                        icon="person-outline"
+                                        label={
+                                            t.profile
+                                        }
+                                        active
+                                        onPress={() =>
+                                            closeMenu()
+                                        }
+                                    />
+
+                                    {/* CHANGE GMAIL */}
+
+                                    <MenuItem
+                                        icon="mail-outline"
+                                        label={
+                                            t.changeGmail
+                                        }
+                                        onPress={() =>
+                                            handleMenuPress(
+                                                '/member/change-email'
+                                            )
+                                        }
+                                    />
+
+                                    {/* CHANGE PIN */}
+
+                                    <MenuItem
+                                        icon="lock-closed-outline"
+                                        label={
+                                            t.changePin
+                                        }
+                                        onPress={() =>
+                                            handleMenuPress(
+                                                '/member/change-pin'
+                                            )
+                                        }
+                                    />
+
+                                    <MenuDivider />
+
+                                    {/* WEEKLY DEPOSIT */}
+
+                                    <MenuItem
+                                        icon="cash-outline"
+                                        label={
+                                            t.weeklyDeposit
+                                        }
+                                        onPress={() =>
+                                            handleMenuPress(
+                                                '/member/deposit'
+                                            )
+                                        }
+                                    />
+
+                                    {/* PENDING DEPOSIT */}
+
+                                    <MenuItem
+                                        icon="hourglass-outline"
+                                        label={
+                                            t.pendingDeposit
+                                        }
+                                        onPress={() =>
+                                            handleMenuPress(
+                                                '/member/pending-deposit'
+                                            )
+                                        }
+                                    />
+
+                                    {/* WEEKLY HISTORY */}
+
+                                    <MenuItem
+                                        icon="time-outline"
+                                        label={
+                                            t.weeklyHistory
+                                        }
+                                        onPress={() =>
+                                            handleMenuPress(
+                                                '/member/deposit-history'
+                                            )
+                                        }
+                                    />
+
+                                    <MenuDivider />
+
+                                    {/* LANGUAGE */}
+
+                                    <View
+                                        style={
+                                            styles.languageMenu
+                                        }
+                                    >
+                                        <View
+                                            style={
+                                                styles.menuItemLeft
+                                            }
+                                        >
+                                            <Ionicons
+                                                name="language-outline"
+                                                size={20}
+                                                color="#475569"
+                                            />
+
+                                            <Text
+                                                style={
+                                                    styles.menuItemText
+                                                }
+                                            >
+                                                {
+                                                    t.language
+                                                }
+                                            </Text>
+                                        </View>
+
+                                        <View
+                                            style={
+                                                styles.languageOptions
+                                            }
+                                        >
+                                            {/* BANGLA */}
+
+                                            <Pressable
+                                                onPress={() =>
+                                                    changeLanguage(
+                                                        'bn'
+                                                    )
+                                                }
+                                                style={
+                                                    language ===
+                                                        'bn'
+                                                        ? styles.languageOptionActive
+                                                        : styles.languageOption
+                                                }
+                                            >
+
+                                                <Text
+                                                    style={
+                                                        language ===
+                                                            'bn'
+                                                            ? styles.languageOptionActiveText
+                                                            : styles.languageOptionText
+                                                    }
+                                                >
+                                                    {t.bangla}
+                                                </Text>
+
+                                            </Pressable>
+
+                                            {/* ENGLISH */}
+
+                                            <Pressable
+                                                onPress={() =>
+                                                    changeLanguage(
+                                                        'en'
+                                                    )
+                                                }
+                                                style={
+                                                    language ===
+                                                        'en'
+                                                        ? styles.languageOptionActive
+                                                        : styles.languageOption
+                                                }
+                                            >
+
+                                                <Text
+                                                    style={
+                                                        language ===
+                                                            'en'
+                                                            ? styles.languageOptionActiveText
+                                                            : styles.languageOptionText
+                                                    }
+                                                >
+                                                    EN
+                                                </Text>
+
+                                            </Pressable>
+                                        </View>
+                                    </View>
+
+                                    <MenuDivider />
+
+                                    {/* LOGOUT */}
+
+                                    <Pressable
+                                        onPress={
+                                            handleLogout
+                                        }
+                                        style={({ pressed }) => [
+                                            styles.logoutButton,
+                                            pressed &&
+                                            styles.logoutButtonPressed,
+                                        ]}
+                                    >
+                                        <Ionicons
+                                            name="log-out-outline"
+                                            size={21}
+                                            color="#dc2626"
+                                        />
+
+                                        <Text
+                                            style={
+                                                styles.logoutText
+                                            }
+                                        >
+                                            {
+                                                t.logout
+                                            }
+                                        </Text>
+                                    </Pressable>
+                                </ScrollView>
+                            </SafeAreaView>
+                        </Animated.View>
+                    </View>
+                )}
             </View>
         </SafeAreaView>
     );
 }
 
 /* ========================================================================== */
-/* PROFILE FIELD                                                              */
+/* PROFILE INFO CARD                                                          */
 /* ========================================================================== */
 
-function ProfileField({
+function ProfileInfoCard({
     label,
     value,
     editable,
+    editing = false,
+    onEdit,
     onChangeText,
     keyboardType,
+    icon,
+    status = false,
 }: {
     label: string;
     value: string;
     editable: boolean;
+    editing?: boolean;
+    onEdit?: () => void;
     onChangeText?: (
         value: string
     ) => void;
     keyboardType?:
     | 'default'
     | 'phone-pad';
+    icon: React.ComponentProps<
+        typeof Ionicons
+    >['name'];
+    status?: boolean;
 }) {
     return (
         <View
             style={
-                styles.fieldContainer
+                styles.infoCard
             }
         >
-            <Text
+            <View
                 style={
-                    styles.fieldLabel
+                    styles.infoIcon
                 }
             >
-                {label}
-            </Text>
-
-            {editable ? (
-                <TextInput
-                    value={value}
-                    onChangeText={
-                        onChangeText
-                    }
-                    keyboardType={
-                        keyboardType ||
-                        'default'
-                    }
-                    style={
-                        styles.input
-                    }
-                    placeholder={
-                        label
-                    }
-                    placeholderTextColor="#94a3b8"
-                    autoCapitalize="words"
+                <Ionicons
+                    name={icon}
+                    size={20}
+                    color="#475569"
                 />
-            ) : (
+            </View>
+
+            <View
+                style={
+                    styles.infoContent
+                }
+            >
                 <Text
                     style={
-                        styles.fieldValue
+                        styles.infoLabel
                     }
                 >
-                    {value || '-'}
+                    {label}
                 </Text>
+
+                {editable ? (
+                    <TextInput
+                        value={value}
+                        onChangeText={
+                            onChangeText
+                        }
+                        keyboardType={
+                            keyboardType ||
+                            'default'
+                        }
+                        style={
+                            styles.infoInput
+                        }
+                        placeholder={
+                            label
+                        }
+                        placeholderTextColor="#94a3b8"
+                        autoCapitalize="words"
+                    />
+                ) : (
+                    <Text
+                        style={[
+                            styles.infoValue,
+                            status &&
+                            styles.statusValue,
+                        ]}
+                        numberOfLines={2}
+                    >
+                        {value || '-'}
+                    </Text>
+                )}
+            </View>
+
+            {/* ONLY NAME & PHONE EDIT ICON */}
+
+            {onEdit && !editing && (
+                <Pressable
+                    onPress={onEdit}
+                    hitSlop={8}
+                    style={({ pressed }) => [
+                        styles.editIconButton,
+                        pressed &&
+                        styles.editIconButtonPressed,
+                    ]}
+                >
+                    <Ionicons
+                        name="create-outline"
+                        size={19}
+                        color="#475569"
+                    />
+                </Pressable>
             )}
         </View>
     );
@@ -978,19 +1716,6 @@ function ProfileField({
 /* HELPERS                                                                    */
 /* ========================================================================== */
 
-function getInitial(
-    name: string
-) {
-    const trimmed =
-        name?.trim();
-
-    return (
-        trimmed
-            ?.charAt(0)
-            .toUpperCase() || 'M'
-    );
-}
-
 function formatDate(
     date: string,
     language: MemberLanguage
@@ -999,15 +1724,92 @@ function formatDate(
         return '-';
     }
 
+    const value =
+        String(date).trim();
+
+    let day: number;
+    let month: number;
+    let year: number;
+
+    // DD-MM-YYYY
+    const ddmmyyyy =
+        value.match(
+            /^(\d{2})-(\d{2})-(\d{4})$/
+        );
+
+    if (ddmmyyyy) {
+        day =
+            Number(
+                ddmmyyyy[1]
+            );
+
+        month =
+            Number(
+                ddmmyyyy[2]
+            );
+
+        year =
+            Number(
+                ddmmyyyy[3]
+            );
+    } else {
+        // YYYY-MM-DD
+        const yyyymmdd =
+            value.match(
+                /^(\d{4})-(\d{2})-(\d{2})$/
+            );
+
+        if (yyyymmdd) {
+            year =
+                Number(
+                    yyyymmdd[1]
+                );
+
+            month =
+                Number(
+                    yyyymmdd[2]
+                );
+
+            day =
+                Number(
+                    yyyymmdd[3]
+                );
+        } else {
+            const parsed =
+                new Date(value);
+
+            if (
+                Number.isNaN(
+                    parsed.getTime()
+                )
+            ) {
+                return value;
+            }
+
+            day =
+                parsed.getDate();
+
+            month =
+                parsed.getMonth() + 1;
+
+            year =
+                parsed.getFullYear();
+        }
+    }
+
     const parsed =
-        new Date(date);
+        new Date(
+            year,
+            month - 1,
+            day
+        );
 
     if (
         Number.isNaN(
             parsed.getTime()
         )
     ) {
-        return date;
+        return value;
     }
 
     return parsed.toLocaleDateString(
@@ -1039,11 +1841,14 @@ const styles = StyleSheet.create({
             '#f6f8fb',
     },
 
-    /* Header */
+    /* ---------------------------------------------------------------------- */
+    /* HEADER                                                                  */
+    /* ---------------------------------------------------------------------- */
 
     header: {
-        height: 72,
+        minHeight: 76,
         paddingHorizontal: 18,
+        paddingVertical: 12,
         backgroundColor:
             '#ffffff',
         borderBottomWidth: 1,
@@ -1051,184 +1856,175 @@ const styles = StyleSheet.create({
             '#e2e8f0',
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent:
+            'space-between',
     },
 
-    backIconButton: {
+    headerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+
+    menuButton: {
         width: 42,
         height: 42,
         borderRadius: 11,
+        backgroundColor:
+            '#f1f5f9',
         alignItems: 'center',
         justifyContent:
             'center',
+        marginRight: 11,
     },
 
-    backIcon: {
-        fontSize: 35,
-        lineHeight: 38,
-        color: '#0f172a',
-        fontWeight: '300',
+    menuButtonPressed: {
+        opacity: 0.65,
     },
 
-    headerTitleContainer: {
-        marginLeft: 7,
-    },
-
-    headerTitle: {
-        fontSize: 15,
+    appName: {
+        fontSize: 16,
         fontWeight: '800',
         color: '#0f172a',
     },
 
-    headerSubtitle: {
+    appSubtitle: {
         marginTop: 2,
         fontSize: 10,
         color: '#64748b',
     },
 
-    /* Content */
-
-    content: {
-        paddingHorizontal: 18,
-        paddingTop: 20,
+    memberInfo: {
+        maxWidth: 145,
+        alignItems: 'flex-end',
     },
 
-    /* Profile Header */
-
-    profileHeader: {
-        paddingVertical: 25,
-        paddingHorizontal: 20,
-        borderRadius: 19,
-        backgroundColor:
-            '#0f172a',
-        alignItems: 'center',
-    },
-
-    avatar: {
-        width: 72,
-        height: 72,
-        borderRadius: 21,
-        backgroundColor:
-            '#1e293b',
-        alignItems: 'center',
-        justifyContent:
-            'center',
-        borderWidth: 2,
-        borderColor:
-            '#334155',
-    },
-
-    avatarText: {
-        fontSize: 28,
-        fontWeight: '800',
-        color: '#ffffff',
-    },
-
-    profileName: {
-        marginTop: 13,
-        fontSize: 20,
-        fontWeight: '800',
-        color: '#ffffff',
-        textAlign: 'center',
-    },
-
-    profileMemberId: {
-        marginTop: 4,
-        fontSize: 11,
-        color: '#94a3b8',
-    },
-
-    statusBadge: {
-        marginTop: 12,
-        paddingHorizontal: 11,
-        paddingVertical: 6,
-        borderRadius: 20,
-        backgroundColor:
-            '#1e293b',
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-
-    statusDot: {
-        width: 7,
-        height: 7,
-        borderRadius: 4,
-        backgroundColor:
-            '#22c55e',
-        marginRight: 6,
-    },
-
-    statusText: {
-        fontSize: 9,
-        fontWeight: '800',
-        color: '#ffffff',
-        letterSpacing: 0.5,
-    },
-
-    /* Section */
-
-    sectionHeader: {
-        marginTop: 24,
-        marginBottom: 10,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent:
-            'space-between',
-    },
-
-    sectionTitle: {
-        fontSize: 15,
+    memberName: {
+        fontSize: 13,
         fontWeight: '800',
         color: '#0f172a',
     },
 
-    editButton: {
-        paddingHorizontal: 13,
-        paddingVertical: 7,
-        borderRadius: 9,
-        backgroundColor:
-            '#e2e8f0',
-    },
-
-    editButtonText: {
+    memberId: {
+        marginTop: 2,
         fontSize: 10,
-        fontWeight: '800',
-        color: '#334155',
+        color: '#64748b',
     },
 
-    /* Card */
 
-    card: {
-        borderRadius: 17,
+    /* ---------------------------------------------------------------------- */
+    /* CONTENT                                                                 */
+    /* ---------------------------------------------------------------------- */
+
+    content: {
+        paddingHorizontal: 18,
+        paddingTop: 20,
+
+    },
+
+    profileHeader: {
+        width: "100%",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#0f172a",
+        borderWidth: 1,
+        borderColor: "#e2e8f0",
+        borderRadius: 20,
+        paddingTop: 5,
+        paddingBottom: 16,
+        paddingHorizontal: 18,
+        marginBottom: 20,
+    },
+
+    profileIconContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: -6,
+    },
+
+    profileIcon: {
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+
+    pageTitle: {
+        fontSize: 24,
+        fontWeight: "700",
+        color: "#ffffff",
+        textAlign: "center",
+        marginTop: -5,
+        marginBottom: 0,
+    },
+
+    pageSubtitle: {
+        fontSize: 13,
+        fontWeight: "400",
+        color: "#ffffff",
+        textAlign: "center",
+        marginBottom: 0,
+    },
+
+    /* ---------------------------------------------------------------------- */
+    /* INFO CARD                                                               */
+    /* ---------------------------------------------------------------------- */
+
+    infoCard: {
+        minHeight: 82,
+        marginBottom: 10,
+        paddingHorizontal: 14,
+        paddingVertical: 13,
+        borderRadius: 15,
         borderWidth: 1,
         borderColor:
             '#e2e8f0',
         backgroundColor:
             '#ffffff',
-        paddingHorizontal: 17,
+        flexDirection: 'row',
+        alignItems: 'center',
     },
 
-    fieldContainer: {
-        paddingVertical: 15,
+    infoIcon: {
+        width: 42,
+        height: 42,
+        borderRadius: 11,
+        backgroundColor:
+            '#f1f5f9',
+        alignItems: 'center',
+        justifyContent:
+            'center',
     },
 
-    fieldLabel: {
+    infoContent: {
+        flex: 1,
+        marginLeft: 12,
+        marginRight: 8,
+    },
+
+    infoLabel: {
         fontSize: 10,
         fontWeight: '700',
         color: '#94a3b8',
-        marginBottom: 6,
+        marginBottom: 5,
     },
 
-    fieldValue: {
+    infoValue: {
         fontSize: 14,
         fontWeight: '700',
         color: '#0f172a',
     },
 
-    input: {
-        minHeight: 43,
-        paddingHorizontal: 12,
-        paddingVertical: 9,
-        borderRadius: 10,
+    statusValue: {
+        color: '#16a34a',
+    },
+
+    infoInput: {
+        minHeight: 39,
+        paddingHorizontal: 10,
+        paddingVertical: 7,
+        borderRadius: 9,
         borderWidth: 1,
         borderColor:
             '#cbd5e1',
@@ -1239,19 +2035,31 @@ const styles = StyleSheet.create({
         color: '#0f172a',
     },
 
-    fieldDivider: {
-        height: 1,
+    editIconButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 9,
         backgroundColor:
-            '#e2e8f0',
+            '#f1f5f9',
+        alignItems: 'center',
+        justifyContent:
+            'center',
     },
 
-    /* Actions */
+    editIconButtonPressed: {
+        opacity: 0.65,
+    },
+
+    /* ---------------------------------------------------------------------- */
+    /* ACTIONS                                                                 */
+    /* ---------------------------------------------------------------------- */
 
     actionContainer: {
-        marginTop: 14,
+        marginTop: 4,
     },
 
     errorText: {
+        marginTop: 4,
         marginBottom: 10,
         fontSize: 11,
         lineHeight: 17,
@@ -1298,7 +2106,258 @@ const styles = StyleSheet.create({
         color: '#ffffff',
     },
 
-    /* Loading */
+    buttonPressed: {
+        opacity: 0.65,
+    },
+
+    /* ---------------------------------------------------------------------- */
+    /* DRAWER                                                                  */
+    /* ---------------------------------------------------------------------- */
+
+    menuOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 1000,
+        elevation: 1000,
+    },
+
+    overlayBackground: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor:
+            'rgba(15, 23, 42, 0.42)',
+    },
+
+    overlayPressable: {
+        flex: 1,
+    },
+
+    drawer: {
+        position: 'absolute',
+        top: 0,
+        bottom: 0,
+        left: 0,
+        width: 315,
+        maxWidth: '86%',
+        backgroundColor:
+            '#ffffff',
+        shadowColor:
+            '#000000',
+        shadowOpacity: 0.16,
+        shadowRadius: 15,
+        shadowOffset: {
+            width: 4,
+            height: 0,
+        },
+        elevation: 12,
+    },
+
+    drawerSafeArea: {
+        flex: 1,
+    },
+
+    drawerHeader: {
+        minHeight: 76,
+        paddingHorizontal: 17,
+        borderBottomWidth: 1,
+        borderBottomColor:
+            '#e2e8f0',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent:
+            'space-between',
+    },
+
+    drawerBrand: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+
+    drawerLogo: {
+        width: 43,
+        height: 43,
+        borderRadius: 12,
+        backgroundColor:
+            '#0f172a',
+        alignItems: 'center',
+        justifyContent:
+            'center',
+        marginRight: 10,
+    },
+
+    takaIcon: {
+        fontSize: 24,
+        fontWeight: '900',
+        color: '#ffffff',
+        lineHeight: 28,
+    },
+
+    drawerAppName: {
+        fontSize: 14,
+        fontWeight: '800',
+        color: '#0f172a',
+    },
+
+    drawerSubtitle: {
+        marginTop: 2,
+        fontSize: 10,
+        color: '#64748b',
+    },
+
+    closeButton: {
+        width: 38,
+        height: 38,
+        borderRadius: 10,
+        backgroundColor:
+            '#f1f5f9',
+        alignItems: 'center',
+        justifyContent:
+            'center',
+    },
+
+    closeButtonPressed: {
+        opacity: 0.65,
+    },
+
+    menuScroll: {
+        paddingHorizontal: 9,
+        paddingBottom: 15,
+    },
+
+    firstMenuItem: {
+        marginTop: 7,
+    },
+
+    menuItem: {
+        minHeight: 46,
+        borderRadius: 10,
+        paddingHorizontal: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 2,
+        overflow: 'hidden',
+    },
+
+    menuItemActive: {
+        backgroundColor:
+            '#0f172a',
+    },
+
+    menuItemIconContainer: {
+        width: 20,
+        height: 20,
+        alignItems: 'center',
+        justifyContent:
+            'center',
+    },
+
+    menuItemText: {
+        marginLeft: 12,
+        fontSize: 12,
+        fontWeight: '700',
+        flex: 1,
+        color: '#334155',
+    },
+
+    menuItemTextActive: {
+        color: '#ffffff',
+    },
+
+    menuDivider: {
+        height: 1,
+        backgroundColor:
+            '#e2e8f0',
+        marginVertical: 10,
+        marginHorizontal: 7,
+    },
+
+    /* ---------------------------------------------------------------------- */
+    /* LANGUAGE                                                                */
+    /* ---------------------------------------------------------------------- */
+
+    languageMenu: {
+        minHeight: 55,
+        paddingHorizontal: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent:
+            'space-between',
+    },
+
+    menuItemLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+
+    languageOptions: {
+        flexDirection: 'row',
+        padding: 3,
+        borderRadius: 9,
+        backgroundColor:
+            '#f1f5f9',
+    },
+
+    languageOption: {
+        paddingHorizontal: 8,
+        paddingVertical: 6,
+        borderRadius: 7,
+    },
+
+    languageOptionActive: {
+        paddingHorizontal: 8,
+        paddingVertical: 5,
+        borderRadius: 7,
+        backgroundColor:
+            '#0f172a',
+    },
+
+    languageOptionText: {
+        fontSize: 9,
+        fontWeight: '800',
+        color: '#64748b',
+    },
+
+    languageOptionActiveText: {
+        fontSize: 9,
+        fontWeight: '800',
+        color: '#ffffff',
+    },
+
+    /* ---------------------------------------------------------------------- */
+    /* LOGOUT                                                                  */
+    /* ---------------------------------------------------------------------- */
+
+    logoutButton: {
+        minHeight: 46,
+        borderRadius: 10,
+        paddingHorizontal: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor:
+            '#fef2f2',
+    },
+
+    logoutButtonPressed: {
+        opacity: 0.65,
+    },
+
+    logoutText: {
+        marginLeft: 12,
+        fontSize: 12,
+        fontWeight: '800',
+        color: '#dc2626',
+    },
+
+    /* ---------------------------------------------------------------------- */
+    /* LOADING                                                                 */
+    /* ---------------------------------------------------------------------- */
 
     loadingContainer: {
         flex: 1,
@@ -1315,7 +2374,9 @@ const styles = StyleSheet.create({
         color: '#64748b',
     },
 
-    /* Error */
+    /* ---------------------------------------------------------------------- */
+    /* ERROR                                                                   */
+    /* ---------------------------------------------------------------------- */
 
     errorContainer: {
         flex: 1,

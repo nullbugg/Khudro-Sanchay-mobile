@@ -1,5 +1,17 @@
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 const API_URL =
     process.env.EXPO_PUBLIC_API_URL;
+
+/*
+|--------------------------------------------------------------------------
+| Member Session Storage
+|--------------------------------------------------------------------------
+*/
+
+const MEMBER_SESSION_KEY =
+    '@khudro_sanchoy_member_session';
 
 /*
 |--------------------------------------------------------------------------
@@ -11,6 +23,7 @@ export type Member = {
     memberId: string;
     memberName: string;
     phone: string;
+    email: string;
     joinDate: string;
     currentShareCount: number;
     currentWeeklyAmount: number;
@@ -87,10 +100,109 @@ export type MemberRegistrationResult = {
 |--------------------------------------------------------------------------
 | Current Member Session
 |--------------------------------------------------------------------------
+|
+| currentMember:
+| - Fast in-memory access
+|
+| AsyncStorage:
+| - Persistent session
+| - App reload হলেও session থাকবে
+|
+|--------------------------------------------------------------------------
 */
 
 let currentMember: Member | null =
     null;
+
+/*
+|--------------------------------------------------------------------------
+| Save Member Session
+|--------------------------------------------------------------------------
+*/
+
+async function saveMemberSession(
+    member: Member
+): Promise<void> {
+    try {
+        currentMember = member;
+
+        await AsyncStorage.setItem(
+            MEMBER_SESSION_KEY,
+            JSON.stringify(member)
+        );
+
+        console.log(
+            'Member session saved:',
+            member.memberId
+        );
+    } catch (error) {
+        console.error(
+            'Failed to save member session:',
+            error
+        );
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| Restore Member Session
+|--------------------------------------------------------------------------
+*/
+
+async function restoreMemberSession(): Promise<Member | null> {
+    try {
+        const storedMember =
+            await AsyncStorage.getItem(
+                MEMBER_SESSION_KEY
+            );
+
+        if (!storedMember) {
+            console.log(
+                'No stored member session found'
+            );
+
+            return null;
+        }
+
+        const parsedMember =
+            JSON.parse(storedMember);
+
+        if (
+            !parsedMember ||
+            !parsedMember.memberId
+        ) {
+            console.log(
+                'Stored member session is invalid'
+            );
+
+            await AsyncStorage.removeItem(
+                MEMBER_SESSION_KEY
+            );
+
+            return null;
+        }
+
+        currentMember =
+            parsedMember as Member;
+
+        console.log(
+            'Member session restored:',
+            currentMember.memberId
+        );
+
+        return currentMember;
+    } catch (error) {
+        console.error(
+            'Failed to restore member session:',
+            error
+        );
+
+        currentMember = null;
+
+        return null;
+    }
+}
+
 
 /*
 |--------------------------------------------------------------------------
@@ -103,7 +215,55 @@ export async function getCurrentMember(): Promise<{
     message: string;
     member?: Member;
 }> {
-    if (!currentMember) {
+    console.log(
+        '========== getCurrentMember =========='
+    );
+
+    console.log(
+        'In-memory currentMember:',
+        currentMember
+    );
+
+    /*
+     * First check in-memory session.
+     */
+    if (currentMember?.memberId) {
+        console.log(
+            'Member found in memory:',
+            currentMember.memberId
+        );
+
+        return {
+            success: true,
+            message: 'Member found',
+            member:
+                currentMember,
+        };
+    }
+
+    /*
+     * If memory session is empty,
+     * restore it from AsyncStorage.
+     */
+    console.log(
+        'Memory session empty. Restoring from AsyncStorage...'
+    );
+
+    const restoredMember =
+        await restoreMemberSession();
+
+    console.log(
+        'Restored member:',
+        restoredMember
+    );
+
+    if (
+        !restoredMember?.memberId
+    ) {
+        console.log(
+            '❌ No member session found'
+        );
+
         return {
             success: false,
             message:
@@ -111,13 +271,20 @@ export async function getCurrentMember(): Promise<{
         };
     }
 
+    console.log(
+        '✅ Member session restored:',
+        restoredMember.memberId
+    );
+
     return {
         success: true,
-        message: 'Member found',
+        message: 'Member session restored',
         member:
-            currentMember,
+            restoredMember,
     };
 }
+
+
 
 /*
 |--------------------------------------------------------------------------
@@ -219,7 +386,7 @@ export async function changeMemberPin(
         };
     } catch (error) {
         console.error(
-            'Change PIN API error:',
+            'Member change PIN API error:',
             error
         );
 
@@ -233,13 +400,419 @@ export async function changeMemberPin(
 
 /*
 |--------------------------------------------------------------------------
+| Member Change Gmail
+|--------------------------------------------------------------------------
+*/
+
+/*
+|--------------------------------------------------------------------------
+| Verify Member PIN for Gmail Change
+|--------------------------------------------------------------------------
+|
+| POST /api/mobile/auth/change-email/verify-pin
+|
+|--------------------------------------------------------------------------
+*/
+
+export async function verifyMemberEmailChangePin(
+    memberId: string,
+    pin: string
+) {
+    try {
+        console.log(
+            'Member email change PIN verification request:',
+            {
+                memberId,
+            }
+        );
+
+        const response =
+            await fetch(
+                `${API_URL}/api/mobile/auth/change-email/verify-pin`,
+                {
+                    method: 'POST',
+
+                    headers: {
+                        'Content-Type':
+                            'application/json',
+
+                        Accept:
+                            'application/json',
+                    },
+
+                    body:
+                        JSON.stringify({
+                            memberId,
+                            pin,
+                        }),
+                }
+            );
+
+        const contentType =
+            response.headers.get(
+                'content-type'
+            ) || '';
+
+        if (
+            !contentType.includes(
+                'application/json'
+            )
+        ) {
+            const text =
+                await response.text();
+
+            console.error(
+                'Member email change PIN non-JSON response:',
+                text
+            );
+
+            throw new Error(
+                'Server থেকে সঠিক response পাওয়া যায়নি।'
+            );
+        }
+
+        const data =
+            await response.json();
+
+        console.log(
+            'Member email change PIN response:',
+            data
+        );
+
+        if (!response.ok) {
+            const error =
+                new Error(
+                    data?.message ||
+                        'PIN verification failed'
+                ) as Error & {
+                    code?: string;
+                };
+
+            error.code =
+                data?.code;
+
+            throw error;
+        }
+
+        return data;
+    } catch (error) {
+        console.error(
+            'Member email change PIN API error:',
+            error
+        );
+
+        throw error;
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| Send Member Gmail Change OTP
+|--------------------------------------------------------------------------
+|
+| POST /api/mobile/auth/change-email/send-otp
+|
+|--------------------------------------------------------------------------
+*/
+
+export async function sendMemberEmailChangeOTP(
+    authorizationToken: string,
+    newEmail: string
+) {
+    try {
+        console.log(
+            'Member email change OTP request:',
+            {
+                newEmail,
+            }
+        );
+
+        const response =
+            await fetch(
+                `${API_URL}/api/mobile/auth/change-email/send-otp`,
+                {
+                    method: 'POST',
+
+                    headers: {
+                        'Content-Type':
+                            'application/json',
+
+                        Accept:
+                            'application/json',
+                    },
+
+                    body:
+                        JSON.stringify({
+                            authorizationToken,
+                            newEmail,
+                        }),
+                }
+            );
+
+        const contentType =
+            response.headers.get(
+                'content-type'
+            ) || '';
+
+        if (
+            !contentType.includes(
+                'application/json'
+            )
+        ) {
+            const text =
+                await response.text();
+
+            console.error(
+                'Member email change OTP non-JSON response:',
+                text
+            );
+
+            throw new Error(
+                'Server থেকে সঠিক response পাওয়া যায়নি।'
+            );
+        }
+
+        const data =
+            await response.json();
+
+        console.log(
+            'Member email change OTP response:',
+            data
+        );
+
+        if (!response.ok) {
+            const error =
+                new Error(
+                    data?.message ||
+                        'OTP পাঠানো যায়নি'
+                ) as Error & {
+                    code?: string;
+                    resendAfter?: number;
+                };
+
+            error.code =
+                data?.code;
+
+            error.resendAfter =
+                data?.resendAfter;
+
+            throw error;
+        }
+
+        return data;
+    } catch (error) {
+        console.error(
+            'Member email change OTP API error:',
+            error
+        );
+
+        throw error;
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| Resend Member Gmail Change OTP
+|--------------------------------------------------------------------------
+*/
+
+export async function resendMemberEmailChangeOTP(
+    authorizationToken: string,
+    newEmail: string
+) {
+    try {
+        console.log(
+            'Resend member email change OTP request:',
+            {
+                newEmail,
+            }
+        );
+
+        const response =
+            await fetch(
+                `${API_URL}/api/mobile/auth/change-email/send-otp`,
+                {
+                    method: 'POST',
+
+                    headers: {
+                        'Content-Type':
+                            'application/json',
+
+                        Accept:
+                            'application/json',
+                    },
+
+                    body:
+                        JSON.stringify({
+                            authorizationToken,
+                            newEmail,
+                        }),
+                }
+            );
+
+        const contentType =
+            response.headers.get(
+                'content-type'
+            ) || '';
+
+        if (
+            !contentType.includes(
+                'application/json'
+            )
+        ) {
+            const text =
+                await response.text();
+
+            console.error(
+                'Resend member email change OTP non-JSON response:',
+                text
+            );
+
+            throw new Error(
+                'Server থেকে সঠিক response পাওয়া যায়নি।'
+            );
+        }
+
+        const data =
+            await response.json();
+
+        console.log(
+            'Resend member email change OTP response:',
+            data
+        );
+
+        if (!response.ok) {
+            const error =
+                new Error(
+                    data?.message ||
+                        'OTP আবার পাঠানো যায়নি'
+                ) as Error & {
+                    code?: string;
+                    resendAfter?: number;
+                };
+
+            error.code =
+                data?.code;
+
+            error.resendAfter =
+                data?.resendAfter;
+
+            throw error;
+        }
+
+        return data;
+    } catch (error) {
+        console.error(
+            'Resend member email change OTP API error:',
+            error
+        );
+
+        throw error;
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| Verify Member Gmail Change OTP
+|--------------------------------------------------------------------------
+*/
+
+export async function verifyMemberEmailChangeOTP(
+    authorizationToken: string,
+    otp: string
+) {
+    try {
+        console.log(
+            'Member email change OTP verification request'
+        );
+
+        const response =
+            await fetch(
+                `${API_URL}/api/mobile/auth/change-email/verify-otp`,
+                {
+                    method: 'POST',
+
+                    headers: {
+                        'Content-Type':
+                            'application/json',
+
+                        Accept:
+                            'application/json',
+                    },
+
+                    body:
+                        JSON.stringify({
+                            authorizationToken,
+                            otp,
+                        }),
+                }
+            );
+
+        const contentType =
+            response.headers.get(
+                'content-type'
+            ) || '';
+
+        if (
+            !contentType.includes(
+                'application/json'
+            )
+        ) {
+            const text =
+                await response.text();
+
+            console.error(
+                'Member email change verification non-JSON response:',
+                text
+            );
+
+            throw new Error(
+                'Server থেকে সঠিক response পাওয়া যায়নি।'
+            );
+        }
+
+        const data =
+            await response.json();
+
+        console.log(
+            'Member email change verification response:',
+            data
+        );
+
+        if (!response.ok) {
+            const error =
+                new Error(
+                    data?.message ||
+                        'OTP verification failed'
+                ) as Error & {
+                    code?: string;
+                };
+
+            error.code =
+                data?.code;
+
+            throw error;
+        }
+
+        return data;
+    } catch (error) {
+        console.error(
+            'Member email change OTP verification API error:',
+            error
+        );
+
+        throw error;
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
 | Member Login
 |--------------------------------------------------------------------------
 |
-| Login now uses:
+| Login:
 | Phone Number + PIN
 |
-| Member ID is NOT used for login.
 |--------------------------------------------------------------------------
 */
 
@@ -313,6 +886,7 @@ export async function memberLogin(
         if (!response.ok) {
             return {
                 success: false,
+
                 message:
                     data?.message ||
                     'Member login failed',
@@ -322,16 +896,20 @@ export async function memberLogin(
             };
         }
 
+        /*
+         * Save member both:
+         *
+         * 1. In memory
+         * 2. AsyncStorage
+         *
+         * So the session survives app reload.
+         */
         if (
             data?.success &&
             data?.member
         ) {
-            currentMember =
-                data.member;
-
-            console.log(
-                'Current member saved:',
-                currentMember.memberId
+            await saveMemberSession(
+                data.member
             );
         }
 
@@ -370,18 +948,6 @@ export async function memberLogin(
 /*
 |--------------------------------------------------------------------------
 | Create Member Account
-|--------------------------------------------------------------------------
-|
-| Step 1:
-| - Member ID
-| - Name
-| - Phone
-| - Gmail
-| - PIN
-| - RE-PIN
-|
-| Backend verifies member information.
-| If valid, OTP is sent to Gmail.
 |--------------------------------------------------------------------------
 */
 
@@ -453,6 +1019,7 @@ export async function registerMemberAccount(
 
             return {
                 success: false,
+
                 message:
                     language === 'en'
                         ? 'The server returned an invalid response.'
@@ -532,13 +1099,6 @@ export async function registerMemberAccount(
 /*
 |--------------------------------------------------------------------------
 | Verify Member Registration OTP
-|--------------------------------------------------------------------------
-|
-| Step 2:
-| Verify OTP.
-|
-| Only after successful OTP verification will the
-| backend save PIN Hash + Gmail to Google Sheets.
 |--------------------------------------------------------------------------
 */
 
@@ -1000,16 +1560,20 @@ export async function updateMemberProfile(
             };
         }
 
+        /*
+         * Update both memory and persistent session.
+         */
         if (
             data?.success &&
             data?.member
         ) {
-            currentMember =
-                data.member;
+            await saveMemberSession(
+                data.member
+            );
 
             console.log(
                 'Updated member saved:',
-                currentMember
+                data.member
             );
         }
 
@@ -1044,12 +1608,23 @@ export async function updateMemberProfile(
 |--------------------------------------------------------------------------
 */
 
-export function clearCurrentMember() {
+export async function clearCurrentMember(): Promise<void> {
     currentMember = null;
 
-    console.log(
-        'Current member session cleared'
-    );
+    try {
+        await AsyncStorage.removeItem(
+            MEMBER_SESSION_KEY
+        );
+
+        console.log(
+            'Current member session cleared'
+        );
+    } catch (error) {
+        console.error(
+            'Failed to clear member session:',
+            error
+        );
+    }
 }
 
 /*
@@ -1122,10 +1697,6 @@ export type MemberPendingDepositsResult = {
 /*
 |--------------------------------------------------------------------------
 | Get Member Pending Deposits
-|--------------------------------------------------------------------------
-|
-| GET /api/mobile/auth/pending-deposits/:memberId
-|
 |--------------------------------------------------------------------------
 */
 
@@ -1247,13 +1818,6 @@ export type MemberDepositHistoryResult = {
 |--------------------------------------------------------------------------
 | Get Member Deposit History
 |--------------------------------------------------------------------------
-|
-| GET /api/mobile/auth/deposit-history/:memberId
-|
-| Returns:
-| PENDING + APPROVED + REJECTED
-|
-|--------------------------------------------------------------------------
 */
 
 export async function getMemberDepositHistory(
@@ -1367,10 +1931,6 @@ export async function getMemberDepositHistory(
 /*
 |--------------------------------------------------------------------------
 | Create Deposit Request
-|--------------------------------------------------------------------------
-|
-| POST /api/mobile/auth/deposit/:memberId
-|
 |--------------------------------------------------------------------------
 */
 
@@ -1490,3 +2050,213 @@ export async function createDepositRequest(
         };
     }
 }
+
+/*
+|--------------------------------------------------------------------------
+| Member Forgot PIN
+|--------------------------------------------------------------------------
+*/
+
+/*
+|--------------------------------------------------------------------------
+| Send Member PIN Reset OTP
+|--------------------------------------------------------------------------
+*/
+
+export async function sendMemberPinResetOTP(
+    phone: string,
+    language: "bn" | "en" = "bn"
+) {
+    const response =
+        await fetch(
+            `${API_URL}/api/mobile/auth/forgot-pin/send-otp`,
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type":
+                        "application/json",
+
+                    Accept:
+                        "application/json",
+                },
+
+                body:
+                    JSON.stringify({
+                        phone,
+                        language,
+                    }),
+            }
+        );
+
+    const data =
+        await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            data?.message ||
+                "Failed to send OTP"
+        );
+    }
+
+    return data;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Verify Member PIN Reset OTP
+|--------------------------------------------------------------------------
+*/
+
+export async function verifyMemberPinResetOTP(
+    phone: string,
+    otp: string
+) {
+    const response =
+        await fetch(
+            `${API_URL}/api/mobile/auth/forgot-pin/verify-otp`,
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type":
+                        "application/json",
+
+                    Accept:
+                        "application/json",
+                },
+
+                body:
+                    JSON.stringify({
+                        phone,
+                        otp,
+                    }),
+            }
+        );
+
+    const data =
+        await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            data?.message ||
+                "Invalid OTP"
+        );
+    }
+
+    return data;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Resend Member PIN Reset OTP
+|--------------------------------------------------------------------------
+*/
+
+export async function resendMemberPinResetOTP(
+    phone: string,
+    language: "bn" | "en" = "bn"
+) {
+    const response =
+        await fetch(
+            `${API_URL}/api/mobile/auth/forgot-pin/resend-otp`,
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type":
+                        "application/json",
+
+                    Accept:
+                        "application/json",
+                },
+
+                body:
+                    JSON.stringify({
+                        phone,
+                        language,
+                    }),
+            }
+        );
+
+    const data =
+        await response.json();
+
+    if (!response.ok) {
+        const error =
+            new Error(
+                data?.message ||
+                    "Failed to resend OTP"
+            );
+
+        (
+            error as Error & {
+                code?: string;
+                resendAfter?: number;
+            }
+        ).code =
+            data?.code;
+
+        (
+            error as Error & {
+                code?: string;
+                resendAfter?: number;
+            }
+        ).resendAfter =
+            data?.resendAfter;
+
+        throw error;
+    }
+
+    return data;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Reset Member PIN
+|--------------------------------------------------------------------------
+*/
+
+export async function resetMemberPin(
+    phone: string,
+    resetToken: string,
+    newPin: string,
+    confirmPin: string
+) {
+    const response =
+        await fetch(
+            `${API_URL}/api/mobile/auth/forgot-pin/reset`,
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type":
+                        "application/json",
+
+                    Accept:
+                        "application/json",
+                },
+
+                body:
+                    JSON.stringify({
+                        phone,
+                        resetToken,
+                        newPin,
+                        confirmPin,
+                    }),
+            }
+        );
+
+    const data =
+        await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            data?.message ||
+                "Failed to reset PIN"
+        );
+    }
+
+    return data;
+}
+

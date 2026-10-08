@@ -66,6 +66,8 @@ type ExtendedDashboardSummary =
 
         nextWeekEndDate?: string;
 
+        advanceAmount?: number;
+
         dueAmount?: number;
 
         dueWeeks?: number;
@@ -93,19 +95,6 @@ type ExtendedDashboardSummary =
 
 
 /* ==========================================================================
-   FIXED WEEK STATUS
-   ========================================================================== */
-
-const CURRENT_WEEK_NUMBER = 23;
-const CURRENT_WEEK_START_DATE = '25-09-2026';
-const CURRENT_WEEK_END_DATE = '01-10-2026';
-
-const NEXT_WEEK_NUMBER = 24;
-const NEXT_WEEK_START_DATE = '02-10-2026';
-const NEXT_WEEK_END_DATE = '08-10-2026';
-
-
-/* ==========================================================================
    TRANSLATIONS
    ========================================================================== */
 
@@ -129,10 +118,10 @@ const translations = {
             'প্রোফাইল',
 
         changeGmail:
-            'Gmail পরিবর্তন',
+            'জি-মেইল পরিবর্তন',
 
         changePin:
-            'PIN পরিবর্তন',
+            'পিন পরিবর্তন',
 
         weeklyDeposit:
             'সাপ্তাহিক জমা',
@@ -144,7 +133,7 @@ const translations = {
             'সাপ্তাহিক জমার ইতিহাস',
 
         language:
-            'ভাষা',
+            'ভাষা নির্বাচন করুন',
 
         bangla:
             'বাংলা',
@@ -159,19 +148,19 @@ const translations = {
             'সদস্য ID',
 
         totalDeposit:
-            'মোট জমা',
+            'মোট জমা টাকার পরিমান',
 
         totalDepositDescription:
-            'সাপ্তাহিক জমা + এডভান্স',
+            'মোট সাপ্তাহিক জমা + অগ্রিম জমা',
 
         weekly:
-            'সাপ্তাহিক',
+            'মোট সাপ্তাহিক জমা',
 
         advance:
-            'এডভান্স',
+            'অগ্রিম জমা',
 
         due:
-            'বাকি',
+            'মোট বকেয়া',
 
         dueAmount:
             'মোট বাকি',
@@ -186,22 +175,16 @@ const translations = {
             'এডভান্স সপ্তাহ',
 
         shareCount:
-            'শেয়ার সংখ্যা',
-
-        shareCountHint:
-            'বর্তমান শেয়ার',
+            'বর্তমান শেয়ার সংখ্যা',
 
         weeklyAmount:
             'সাপ্তাহিক জমার পরিমাণ',
-
-        weeklyAmountDescription:
-            'প্রতি সপ্তাহে জমা দিতে হবে',
 
         lastDeposit:
             'সর্বশেষ জমা',
 
         lastDepositWeek:
-            'সর্বশেষ জমার সপ্তাহ',
+            'সর্বশেষ জমার সপ্তাহ ও তারিখ',
 
         lastDepositDate:
             'সর্বশেষ জমার তারিখ',
@@ -256,10 +239,10 @@ const translations = {
     en: {
 
         appName:
-            'Savings',
+            'ক্ষুদ্র সঞ্চয়',
 
         appSubtitle:
-            'Cooperative Society',
+            'সমবায় সমিতি',
 
         memberPanel:
             'Member Panel',
@@ -286,7 +269,7 @@ const translations = {
             'Weekly Deposit History',
 
         language:
-            'Language',
+            'Select Language',
 
         bangla:
             'বাংলা',
@@ -301,19 +284,19 @@ const translations = {
             'Member ID',
 
         totalDeposit:
-            'Total Deposit',
+            'Total Deposit Amount',
 
         totalDepositDescription:
             'Weekly Deposit + Advance',
 
         weekly:
-            'Weekly',
+            'Weekly Deposit',
 
         advance:
-            'Advance',
+            'Total Advance',
 
         due:
-            'Due',
+            'Total Due',
 
         dueAmount:
             'Total Due',
@@ -330,20 +313,14 @@ const translations = {
         shareCount:
             'Share Count',
 
-        shareCountHint:
-            'Current shares',
-
         weeklyAmount:
             'Weekly Deposit Amount',
-
-        weeklyAmountDescription:
-            'Amount to deposit every week',
 
         lastDeposit:
             'Last Deposit',
 
         lastDepositWeek:
-            'Last Deposit Week',
+            'Last Deposit Week & Date',
 
         lastDepositDate:
             'Last Deposit Date',
@@ -1344,102 +1321,77 @@ export default function MemberDashboard() {
                 <View
                     style={styles.container}
                 >
-
                     {/* ==========================================================
-                       TOTAL DEPOSIT
-                       ========================================================== */}
+                        COMPACT DASHBOARD SUMMARY
+                        ========================================================== */}
 
-                    <View
-                        style={[
-                            styles.mainCard,
-                            styles.totalDepositCard,
-                        ]}
-                    >
+                    {/* TOTAL DEPOSIT */}
 
-                        <View
-                            style={
-                                styles.mainCardTop
-                            }
-                        >
+                    <View style={styles.totalDepositCard}>
 
-                            <View>
+                        <View style={styles.totalDepositTop}>
 
-                                <Text
-                                    style={
-                                        styles.mainCardLabel
-                                    }
-                                >
-                                    {t.totalDeposit}
-                                </Text>
+                            <View style={styles.totalDepositTitleArea}>
 
+                                <View style={styles.totalDepositIcon}>
+                                    <Ionicons
+                                        name="wallet-outline"
+                                        size={20}
+                                        color="#ffffff"
+                                    />
+                                </View>
 
-                                <Text
-                                    style={
-                                        styles.mainCardDescription
-                                    }
-                                >
-                                    {
-                                        t.totalDepositDescription
-                                    }
-                                </Text>
+                                <View>
+                                    <Text style={styles.totalDepositLabel}>
+                                        {t.totalDeposit}
+                                    </Text>
+
+                                    <Text style={styles.totalDepositDescription}>
+                                        {t.totalDepositDescription}
+                                    </Text>
+                                </View>
 
                             </View>
 
+                            <View style={styles.totalDepositAmountArea}>
 
-                            <View
-                                style={
-                                    styles.mainIcon
-                                }
-                            >
-
-                                <Ionicons
-                                    name="wallet"
-                                    size={25}
-                                    color="#ffffff"
-                                />
+                                <Text style={styles.totalDepositAmount}>
+                                    {formatMoney(totalDeposit)}
+                                </Text>
 
                             </View>
 
                         </View>
 
+                        <View style={styles.totalDepositFooter}>
 
-                        <Text
-                            style={styles.mainAmount}
-                        >
-                            {formatMoney(
-                                totalDeposit
-                            )}
-                        </Text>
+                            <View style={styles.totalDepositFooterItem}>
 
+                                <Text style={styles.totalDepositFooterLabel}>
+                                    {t.weekly}
+                                </Text>
 
-                        <View
-                            style={
-                                styles.mainCardFooter
-                            }
-                        >
+                                <Text style={styles.totalDepositFooterValue}>
+                                    {formatMoney(summary.currentWeeklyPaid)}
+                                </Text>
 
-                            <Text
-                                style={
-                                    styles.footerAmountText
-                                }
-                            >
-                                {t.weekly}{' '}
-                                {formatMoney(
-                                    summary.currentWeeklyPaid
-                                )}
-                            </Text>
+                            </View>
 
 
-                            <Text
-                                style={
-                                    styles.footerAmountText
-                                }
-                            >
-                                {t.advance}{' '}
-                                {formatMoney(
-                                    advanceAmount
-                                )}
-                            </Text>
+                            <View style={styles.totalDepositFooterDivider} />
+
+
+                            <View style={styles.totalDepositFooterItem}>
+
+                                <Text style={styles.totalDepositFooterLabel}>
+                                    {t.advance}
+                                </Text>
+
+                                <Text style={styles.totalDepositFooterValue}>
+                                    {formatMoney(advanceAmount)}
+                                </Text>
+
+                            </View>
 
                         </View>
 
@@ -1447,81 +1399,45 @@ export default function MemberDashboard() {
 
 
                     {/* ==========================================================
-                       DUE + ADVANCE
-                       ========================================================== */}
+                        DUE + ADVANCE
+                        ========================================================== */}
 
-                    <View
-                        style={styles.twoColumn}
-                    >
+                    <View style={styles.twoColumn}>
 
                         {/* DUE */}
 
-                        <View
-                            style={[
-                                styles.statCard,
-                                styles.dueCard,
-                            ]}
-                        >
+                        <View style={[
+                            styles.compactStatCard,
+                            styles.dueCard,
+                        ]}>
 
-                            <View
-                                style={
-                                    styles.statCardHeader
-                                }
-                            >
+                            <View style={styles.compactStatTop}>
 
-                                <View
-                                    style={[
-                                        styles.statIcon,
-                                        styles.dueIcon,
-                                    ]}
-                                >
-
+                                <View style={[
+                                    styles.compactStatIcon,
+                                    styles.dueIcon,
+                                ]}>
                                     <Ionicons
                                         name="alert-circle-outline"
-                                        size={21}
+                                        size={18}
                                         color="#dc2626"
                                     />
-
                                 </View>
 
-
-                                <Text
-                                    style={
-                                        styles.statLabel
-                                    }
-                                >
+                                <Text style={styles.compactStatLabel}>
                                     {t.due}
                                 </Text>
 
                             </View>
 
-
-                            <Text
-                                style={[
-                                    styles.statAmount,
-                                    styles.dueAmount,
-                                ]}
-                            >
-                                {formatMoney(
-                                    dueAmount
-                                )}
+                            <Text style={[
+                                styles.compactStatAmount,
+                                styles.dueAmount,
+                            ]}>
+                                {formatMoney(dueAmount)}
                             </Text>
 
-
-                            <Text
-                                style={
-                                    styles.detailText
-                                }
-                            >
-                                {t.dueAmount}
-                            </Text>
-
-
-                            <Text
-                                style={
-                                    styles.weekRangeText
-                                }
-                            >
+                            <Text style={styles.compactStatDetail}>
                                 {formatDueWeeks(
                                     summary,
                                     language,
@@ -1534,77 +1450,46 @@ export default function MemberDashboard() {
 
                         {/* ADVANCE */}
 
-                        <View
-                            style={[
-                                styles.statCard,
-                                styles.advanceCard,
-                            ]}
-                        >
+                        <View style={[
+                            styles.compactStatCard,
+                            styles.advanceCard,
+                        ]}>
 
-                            <View
-                                style={
-                                    styles.statCardHeader
-                                }
-                            >
+                            <View style={styles.compactStatTop}>
 
-                                <View
-                                    style={[
-                                        styles.statIcon,
-                                        styles.advanceIcon,
-                                    ]}
-                                >
-
+                                <View style={[
+                                    styles.compactStatIcon,
+                                    styles.advanceIcon,
+                                ]}>
                                     <Ionicons
                                         name="arrow-up-circle-outline"
-                                        size={21}
+                                        size={18}
                                         color="#2563eb"
                                     />
-
                                 </View>
 
-
-                                <Text
-                                    style={
-                                        styles.statLabel
-                                    }
-                                >
+                                <Text style={styles.compactStatLabel}>
                                     {t.advance}
                                 </Text>
 
                             </View>
 
-
-                            <Text
-                                style={[
-                                    styles.statAmount,
-                                    styles.advanceAmount,
-                                ]}
-                            >
-                                {formatMoney(
-                                    advanceAmount
-                                )}
+                            <Text style={[
+                                styles.compactStatAmount,
+                                styles.advanceAmount,
+                            ]}>
+                                {formatMoney(advanceAmount)}
                             </Text>
 
-
-                            <Text
-                                style={
-                                    styles.detailText
-                                }
-                            >
-                                {t.advanceAmount}
-                            </Text>
-
-
-                            <Text
-                                style={[
-                                    styles.weekRangeText,
-                                    styles.advanceWeekRangeText,
-                                ]}
-                            >
+                            <Text style={[
+                                styles.compactStatDetail,
+                                styles.advanceWeekRangeText,
+                            ]}>
                                 {formatAdvanceWeeks(
                                     summary,
                                     language,
-                                    t
+                                    t,
+                                    weeklyAmount
                                 )}
                             </Text>
 
@@ -1614,118 +1499,66 @@ export default function MemberDashboard() {
 
 
                     {/* ==========================================================
-                       SHARE + WEEKLY AMOUNT
-                       ========================================================== */}
+                        SHARE + WEEKLY DEPOSIT
+                        ========================================================== */}
 
-                    <View
-                        style={styles.twoColumn}
-                    >
+                    <View style={styles.twoColumn}>
 
                         {/* SHARE */}
 
-                        <View
-                            style={
-                                styles.smallCard
-                            }
-                        >
+                        <View style={styles.infoCard}>
 
-                            <View
-                                style={
-                                    styles.smallCardIcon
-                                }
-                            >
-
+                            <View style={styles.infoCardIcon}>
                                 <Ionicons
                                     name="layers-outline"
-                                    size={23}
-                                    color="#0f172a"
+                                    size={19}
+                                    color="#334155"
                                 />
-
                             </View>
 
+                            <View style={styles.infoCardContent}>
 
-                            <Text
-                                style={
-                                    styles.smallCardLabel
-                                }
-                            >
-                                {t.shareCount}
-                            </Text>
+                                <Text style={styles.infoCardLabel}>
+                                    {t.shareCount}
+                                </Text>
 
+                                <Text style={styles.infoCardValue}>
+                                    {member.currentShareCount || 0}
+                                </Text>
 
-                            <Text
-                                style={
-                                    styles.smallCardValue
-                                }
-                            >
-                                {
-                                    member.currentShareCount ||
-                                    0
-                                }
-                            </Text>
-
-
-                            <Text
-                                style={
-                                    styles.smallCardHint
-                                }
-                            >
-                                {t.shareCountHint}
-                            </Text>
+                            </View>
 
                         </View>
 
 
                         {/* WEEKLY AMOUNT */}
 
-                        <View
-                            style={
-                                styles.smallCard
-                            }
-                        >
+                        <View style={styles.infoCard}>
 
-                            <View
-                                style={
-                                    styles.smallCardIcon
-                                }
-                            >
-
+                            <View style={styles.infoCardIcon}>
                                 <Ionicons
                                     name="repeat-outline"
-                                    size={23}
-                                    color="#0f172a"
+                                    size={19}
+                                    color="#334155"
                                 />
-
                             </View>
 
+                            <View style={styles.infoCardContent}>
 
-                            <Text
-                                style={
-                                    styles.smallCardLabel
-                                }
-                            >
-                                {t.weeklyAmount}
-                            </Text>
+                                <Text
+                                    style={styles.infoCardLabel}
+                                    numberOfLines={1}
+                                >
+                                    {t.weeklyAmount}
+                                </Text>
 
+                                <Text style={styles.infoCardValue}>
+                                    {formatMoney(
+                                        member.currentWeeklyAmount
+                                    )}
+                                </Text>
 
-                            <Text
-                                style={
-                                    styles.smallCardValue
-                                }
-                            >
-                                {formatMoney(
-                                    member.currentWeeklyAmount
-                                )}
-                            </Text>
-
-
-                            <Text
-                                style={
-                                    styles.smallCardHint
-                                }
-                            >
-                                {t.weeklyAmountDescription}
-                            </Text>
+                            </View>
 
                         </View>
 
@@ -1733,56 +1566,28 @@ export default function MemberDashboard() {
 
 
                     {/* ==========================================================
-                       LAST DEPOSIT
-                       ========================================================== */}
+                        LAST DEPOSIT
+                        ========================================================== */}
 
-                    <View
-                        style={
-                            styles.lastDepositCard
-                        }
-                    >
+                    <View style={styles.lastDepositCard}>
 
-                        <View
-                            style={
-                                styles.lastDepositLeft
-                            }
-                        >
+                        <View style={styles.lastDepositLeft}>
 
-                            <View
-                                style={
-                                    styles.lastDepositIcon
-                                }
-                            >
-
+                            <View style={styles.lastDepositIcon}>
                                 <Ionicons
                                     name="checkmark-circle-outline"
-                                    size={23}
-                                    color="#0f172a"
+                                    size={20}
+                                    color="#16a34a"
                                 />
-
                             </View>
 
+                            <View style={styles.lastDepositTextContainer}>
 
-                            <View
-                                style={
-                                    styles.lastDepositTextContainer
-                                }
-                            >
-
-                                <Text
-                                    style={
-                                        styles.lastDepositTitle
-                                    }
-                                >
+                                <Text style={styles.lastDepositTitle}>
                                     {t.lastDeposit}
                                 </Text>
 
-
-                                <Text
-                                    style={
-                                        styles.lastDepositDescription
-                                    }
-                                >
+                                <Text style={styles.lastDepositDescription}>
                                     {t.lastDepositWeek}
                                 </Text>
 
@@ -1791,35 +1596,20 @@ export default function MemberDashboard() {
                         </View>
 
 
-                        <View
-                            style={
-                                styles.lastDepositRight
-                            }
-                        >
+                        <View style={styles.lastDepositRight}>
 
-                            <Text
-                                style={
-                                    styles.lastDepositWeekValue
-                                }
-                            >
+                            <Text style={styles.lastDepositWeekValue}>
                                 {t.week}{' '}
                                 {summary.latestWeek || '-'}
                             </Text>
 
-
-                            <Text
-                                style={
-                                    styles.lastDepositDate
-                                }
-                            >
-                                {
-                                    summary.lastPaymentDate
-                                        ? formatDate(
-                                            summary.lastPaymentDate,
-                                            language
-                                        )
-                                        : '-'
-                                }
+                            <Text style={styles.lastDepositDate}>
+                                {formatDate(
+                                    getWeekStartDate(
+                                        Number(summary.latestWeek || 0)
+                                    ),
+                                    language
+                                )}
                             </Text>
 
                         </View>
@@ -1828,141 +1618,116 @@ export default function MemberDashboard() {
 
 
                     {/* ==========================================================
-                       CURRENT + NEXT WEEK
-                       ========================================================== */}
+                        WEEK STATUS
+                        ========================================================== */}
 
-                    <View
-                        style={
-                            styles.weekProgressCard
-                        }
-                    >
+                    <View style={styles.weekProgressCard}>
 
-                        <Text
-                            style={
-                                styles.sectionTitle
-                            }
-                        >
-                            {t.weekStatus}
-                        </Text>
+                        <View style={styles.weekStatusHeader}>
 
+                            <View style={styles.weekStatusTitleArea}>
 
-                        <View
-                            style={
-                                styles.weekProgressRow
-                            }
-                        >
+                                <View style={styles.weekStatusIcon}>
+                                    <Ionicons
+                                        name="calendar-outline"
+                                        size={17}
+                                        color="#334155"
+                                    />
+                                </View>
 
-                            {/* CURRENT */}
-
-                            <View
-                                style={
-                                    styles.currentWeekBox
-                                }
-                            >
-
-                                <Text
-                                    style={
-                                        styles.weekBoxLabel
-                                    }
-                                >
-                                    {
-                                        t.currentWeek
-                                    }
-                                </Text>
-
-
-                                <Text
-                                    style={
-                                        styles.currentWeekNumber
-                                    }
-                                >
-                                    {t.week}{' '}
-                                    {
-                                        CURRENT_WEEK_NUMBER
-                                    }
-                                </Text>
-
-
-                                <Text
-                                    style={
-                                        styles.currentWeekDate
-                                    }
-                                >
-                                    {formatWeekDateRange(
-                                        CURRENT_WEEK_START_DATE,
-                                        CURRENT_WEEK_END_DATE,
-                                        language
-                                    )}
-                                </Text>
-
-                            </View>
-
-
-                            {/* ARROW */}
-
-                            <View
-                                style={
-                                    styles.weekArrow
-                                }
-                            >
-
-                                <Ionicons
-                                    name="arrow-forward"
-                                    size={22}
-                                    color="#94a3b8"
-                                />
-
-                            </View>
-
-
-                            {/* NEXT */}
-
-                            <View
-                                style={
-                                    styles.nextWeekBox
-                                }
-                            >
-
-                                <Text
-                                    style={
-                                        styles.nextWeekLabel
-                                    }
-                                >
-                                    {
-                                        t.nextWeek
-                                    }
-                                </Text>
-
-
-                                <Text
-                                    style={
-                                        styles.nextWeekNumber
-                                    }
-                                >
-                                    {t.week}{' '}
-                                    {
-                                        NEXT_WEEK_NUMBER
-                                    }
-                                </Text>
-
-
-                                <Text
-                                    style={
-                                        styles.nextWeekDate
-                                    }
-                                >
-                                    {formatWeekDateRange(
-                                        NEXT_WEEK_START_DATE,
-                                        NEXT_WEEK_END_DATE,
-                                        language
-                                    )}
+                                <Text style={styles.sectionTitle}>
+                                    {t.weekStatus}
                                 </Text>
 
                             </View>
 
                         </View>
 
+
+                        <View style={styles.weekProgressRow}>
+
+                            {/* CURRENT WEEK */}
+
+                            <View style={styles.currentWeekBox}>
+
+                                <Text style={styles.weekBoxLabel}>
+                                    {t.currentWeek}
+                                </Text>
+
+                                <View style={styles.weekInfoRow}>
+
+                                    <Text style={styles.currentWeekNumber}>
+                                        {t.week}{' '}
+                                        {summary?.currentWeek || 0}
+                                    </Text>
+
+                                    <Text style={styles.currentWeekDate}>
+                                        {
+                                            summary?.currentWeekStartDate
+                                                ? formatDate(
+                                                    summary.currentWeekStartDate,
+                                                    language
+                                                )
+                                                : '-'
+                                        }
+                                    </Text>
+
+                                </View>
+
+                            </View>
+
+
+                            {/* ARROW */}
+
+                            <View style={styles.weekArrow}>
+
+                                <View style={styles.weekArrowCircle}>
+                                    <Ionicons
+                                        name="arrow-forward"
+                                        size={15}
+                                        color="#64748b"
+                                    />
+                                </View>
+
+                            </View>
+
+
+                            {/* NEXT WEEK */}
+
+                            <View style={styles.nextWeekBox}>
+
+                                <Text style={styles.nextWeekLabel}>
+                                    {t.nextWeek}
+                                </Text>
+
+                                <View style={styles.weekInfoRow}>
+
+                                    <Text style={styles.nextWeekNumber}>
+                                        {t.week}{' '}
+                                        {summary?.nextWeek || 0}
+                                    </Text>
+
+                                    <Text style={styles.nextWeekDate}>
+                                        {
+                                            summary?.nextWeekStartDate
+                                                ? formatDate(
+                                                    summary.nextWeekStartDate,
+                                                    language
+                                                )
+                                                : '-'
+                                        }
+                                    </Text>
+
+                                </View>
+
+                            </View>
+
+                        </View>
+
                     </View>
+
+
+
 
 
                     <View
@@ -2036,7 +1801,7 @@ export default function MemberDashboard() {
                                 styles.drawerSafeArea
                             }
                             edges={[
-                                
+
                                 'bottom',
                             ]}
                         >
@@ -2176,7 +1941,7 @@ export default function MemberDashboard() {
                                     }
                                     onPress={() =>
                                         handleMenuPress(
-                                            '/member/change-gmail'
+                                            '/member/change-email'
                                         )
                                     }
                                 />
@@ -2525,6 +2290,45 @@ function formatMoney(
 
 }
 
+function getWeekStartDate(
+    weekNumber: number
+): string {
+    if (
+        !Number.isInteger(weekNumber) ||
+        weekNumber < 1
+    ) {
+        return "";
+    }
+
+    const WEEK_1_START = new Date(
+        "2026-04-24T00:00:00"
+    );
+
+    const date = new Date(
+        WEEK_1_START.getTime() +
+        (
+            (weekNumber - 1) *
+            7 *
+            24 *
+            60 *
+            60 *
+            1000
+        )
+    );
+
+    const day = String(
+        date.getDate()
+    ).padStart(2, "0");
+
+    const month = String(
+        date.getMonth() + 1
+    ).padStart(2, "0");
+
+    const year = date.getFullYear();
+
+    return `${day}-${month}-${year}`;
+}
+
 
 function formatDate(
     date: string,
@@ -2657,131 +2461,74 @@ function formatDueWeeks(
     language: MemberLanguage,
     t: typeof translations.bn
 ) {
+    const currentWeek = Number(
+        summary.currentWeek || 0
+    );
 
+    const latestWeek = Number(
+        summary.latestWeek || 0
+    );
+
+    const dueFromWeek = latestWeek + 1;
+    const dueToWeek = currentWeek;
+
+    // কোনো বকেয়া নেই
     if (
-        summary.dueFromWeek &&
-        summary.dueToWeek
+        currentWeek <= 0 ||
+        latestWeek >= currentWeek
     ) {
-
-        const range =
-            summary.dueFromWeek ===
-                summary.dueToWeek
-                ? `${t.week} ${summary.dueFromWeek}`
-                : `${t.week} ${summary.dueFromWeek} - ${summary.dueToWeek}`;
-
-
-        if (
-            summary.dueFromDate &&
-            summary.dueToDate
-        ) {
-
-            return `${range} • ${formatDate(
-                summary.dueFromDate,
-                language
-            )} - ${formatDate(
-                summary.dueToDate,
-                language
-            )}`;
-
-        }
-
-
-        return range;
-
-    }
-
-
-    if (summary.dueWeeks) {
-
         return language === 'bn'
-            ? `${summary.dueWeeks} সপ্তাহ বাকি`
-            : `${summary.dueWeeks} weeks due`;
-
+            ? 'কোন বকেয়া নাই!'
+            : 'No Outstanding Dues!';
     }
 
+    // শুধু ১ সপ্তাহ বাকি
+    if (dueFromWeek === dueToWeek) {
+        return language === 'bn'
+            ? `সপ্তাহ ${dueFromWeek} এর বকেয়া!`
+            : `Due for Week ${dueFromWeek}!`;
+    }
 
-    return '-';
-
+    // একাধিক সপ্তাহ বাকি
+    return language === 'bn'
+        ? `সপ্তাহ ${dueFromWeek} - সপ্তাহ ${dueToWeek} পর্যন্ত বকেয়া!`
+        : `Due from Week ${dueFromWeek} - Week ${dueToWeek}!`;
 }
 
 
 function formatAdvanceWeeks(
     summary: ExtendedDashboardSummary,
     language: MemberLanguage,
-    t: typeof translations.bn
+    t: typeof translations.bn,
+    weeklyAmount: number
 ) {
+    const advanceAmount = Number(
+        summary.advanceAmount || 0
+    );
 
-    if (
-        summary.advanceFromWeek &&
-        summary.advanceToWeek
-    ) {
+    if (advanceAmount > 0) {
+        const currentWeek = Number(
+            summary.currentWeek || 0
+        );
 
-        const range =
-            summary.advanceFromWeek ===
-                summary.advanceToWeek
-                ? `${t.week} ${summary.advanceFromWeek}`
-                : `${t.week} ${summary.advanceFromWeek} - ${summary.advanceToWeek}`;
+        const advanceWeeks =
+            weeklyAmount > 0
+                ? Math.floor(
+                    advanceAmount / weeklyAmount
+                )
+                : 0;
 
-
-        if (
-            summary.advanceUntilDate
-        ) {
-
-            return `${range} • ${t.until} ${formatDate(
-                summary.advanceUntilDate,
-                language
-            )}`;
-
-        }
-
-
-        if (
-            summary.advanceFromDate &&
-            summary.advanceToDate
-        ) {
-
-            return `${range} • ${formatDate(
-                summary.advanceFromDate,
-                language
-            )} - ${formatDate(
-                summary.advanceToDate,
-                language
-            )}`;
-
-        }
-
-
-        return range;
-
-    }
-
-
-    if (summary.advanceWeeks) {
+        const calculatedAdvanceToWeek =
+            currentWeek + advanceWeeks;
 
         return language === 'bn'
-            ? `${summary.advanceWeeks} সপ্তাহ এডভান্স`
-            : `${summary.advanceWeeks} weeks advance`;
-
+            ? `সপ্তাহ ${calculatedAdvanceToWeek} পর্যন্ত অগ্রিম জমা আছে!`
+            : `Advance paid up to Week ${calculatedAdvanceToWeek}`;
     }
 
-
-    /*
-     * এখানে currentAdvance ব্যবহার করে historical advance-কে
-     * active dashboard advance হিসেবে দেখানো হবে না।
-     */
-    if (
-        Number(summary.advanceAmount || 0) > 0
-    ) {
-
-        return language === 'bn'
-            ? 'এডভান্স সক্রিয় আছে'
-            : 'Advance is active';
-
-    }
-
-
-    return '-';
-
+    return language === 'bn'
+        ? 'কোন অগ্রিম জমা নেই!'
+        : 'No Advance Deposit!';
 }
 
 
@@ -2972,21 +2719,20 @@ const styles = StyleSheet.create({
 
 
     /* =========================================================================
-       DASHBOARD
-       ========================================================================= */
+   DASHBOARD
+   ========================================================================= */
 
     scrollContent: {
         flexGrow: 1,
-        paddingBottom: 30,
+        paddingBottom: 24,
     },
-
 
     container: {
         width: '100%',
         maxWidth: 600,
         alignSelf: 'center',
-        paddingHorizontal: 18,
-        paddingTop: 22,
+        paddingHorizontal: 16,
+        paddingTop: 14,
     },
 
 
@@ -2994,78 +2740,99 @@ const styles = StyleSheet.create({
        TOTAL DEPOSIT
        ========================================================================= */
 
-    mainCard: {
-        borderRadius: 18,
-        padding: 20,
-        backgroundColor: '#0f172a',
-    },
-
-
     totalDepositCard: {
+        borderRadius: 15,
+        paddingHorizontal: 16,
+        paddingTop: 14,
+        paddingBottom: 12,
+        backgroundColor: '#0f172a',
+
         shadowColor: '#000000',
-        shadowOpacity: 0.10,
-        shadowRadius: 12,
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
         shadowOffset: {
             width: 0,
-            height: 5,
+            height: 3,
         },
-        elevation: 4,
+
+        elevation: 3,
     },
 
-
-    mainCardTop: {
+    totalDepositTop: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
     },
 
-
-    mainCardLabel: {
-        fontSize: 13,
-        fontWeight: '700',
-        color: '#cbd5e1',
+    totalDepositTitleArea: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
     },
 
-
-    mainCardDescription: {
-        marginTop: 3,
-        fontSize: 11,
-        color: '#94a3b8',
-    },
-
-
-    mainIcon: {
-        width: 45,
-        height: 45,
-        borderRadius: 13,
+    totalDepositIcon: {
+        width: 38,
+        height: 38,
+        borderRadius: 10,
         backgroundColor: '#1e293b',
         alignItems: 'center',
         justifyContent: 'center',
+        marginRight: 10,
     },
 
+    totalDepositLabel: {
+        fontSize: 12,
+        fontWeight: '800',
+        color: '#f8fafc',
+    },
 
-    mainAmount: {
-        marginTop: 13,
-        fontSize: 32,
+    totalDepositDescription: {
+        marginTop: 2,
+        fontSize: 9,
+        color: '#94a3b8',
+    },
+
+    totalDepositAmountArea: {
+        alignItems: 'flex-end',
+    },
+
+    totalDepositAmount: {
+        fontSize: 23,
         fontWeight: '900',
         color: '#ffffff',
     },
 
-
-    mainCardFooter: {
-        marginTop: 10,
-        paddingTop: 13,
+    totalDepositFooter: {
+        marginTop: 11,
+        paddingTop: 9,
         borderTopWidth: 1,
         borderTopColor: '#334155',
         flexDirection: 'row',
-        justifyContent: 'space-between',
+        alignItems: 'center',
     },
 
+    totalDepositFooterItem: {
+        flex: 1,
+    },
 
-    footerAmountText: {
-        fontSize: 10,
+    totalDepositFooterDivider: {
+        width: 1,
+        height: 25,
+        backgroundColor: '#334155',
+        marginHorizontal: 12,
+    },
+
+    totalDepositFooterLabel: {
+        fontSize: 9,
         fontWeight: '700',
-        color: '#cbd5e1',
+        color: '#94a3b8',
+    },
+
+    totalDepositFooterValue: {
+        marginTop: 2,
+        fontSize: 11,
+        fontWeight: '800',
+        color: '#e2e8f0',
     },
 
 
@@ -3075,103 +2842,87 @@ const styles = StyleSheet.create({
 
     twoColumn: {
         flexDirection: 'row',
-        gap: 12,
-        marginTop: 12,
+        gap: 10,
+        marginTop: 10,
     },
 
 
-    statCard: {
+    /* =========================================================================
+       COMPACT STAT CARDS
+       ========================================================================= */
+
+    compactStatCard: {
         flex: 1,
-        minHeight: 172,
-        borderRadius: 16,
-        padding: 16,
+        minHeight: 118,
+        borderRadius: 14,
+        padding: 13,
         backgroundColor: '#ffffff',
         borderWidth: 1,
         borderColor: '#e2e8f0',
     },
 
-
     dueCard: {
         borderColor: '#fecaca',
-        backgroundColor: '#fff7f7',
+        backgroundColor: '#fffafa',
     },
-
 
     advanceCard: {
         borderColor: '#bfdbfe',
         backgroundColor: '#f8fbff',
     },
 
-
-    statCardHeader: {
+    compactStatTop: {
         flexDirection: 'row',
         alignItems: 'center',
     },
 
-
-    statIcon: {
-        width: 38,
-        height: 38,
-        borderRadius: 11,
+    compactStatIcon: {
+        width: 32,
+        height: 32,
+        borderRadius: 9,
         backgroundColor: '#f1f5f9',
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 9,
+        marginRight: 8,
     },
-
 
     dueIcon: {
         backgroundColor: '#fee2e2',
     },
 
-
     advanceIcon: {
         backgroundColor: '#dbeafe',
     },
 
-
-    statLabel: {
+    compactStatLabel: {
         flex: 1,
-        fontSize: 11,
-        fontWeight: '700',
-        lineHeight: 16,
+        fontSize: 10,
+        fontWeight: '800',
         color: '#475569',
     },
 
-
-    statAmount: {
-        marginTop: 15,
-        fontSize: 21,
+    compactStatAmount: {
+        marginTop: 10,
+        fontSize: 19,
         fontWeight: '900',
         color: '#0f172a',
     },
-
 
     dueAmount: {
         color: '#dc2626',
     },
 
-
     advanceAmount: {
         color: '#2563eb',
     },
 
-
-    detailText: {
-        marginTop: 5,
-        fontSize: 9,
-        color: '#64748b',
-    },
-
-
-    weekRangeText: {
-        marginTop: 7,
-        fontSize: 9,
-        lineHeight: 14,
+    compactStatDetail: {
+        marginTop: 4,
+        fontSize: 8.5,
+        lineHeight: 13,
         fontWeight: '700',
         color: '#b91c1c',
     },
-
 
     advanceWeekRangeText: {
         color: '#2563eb',
@@ -3179,50 +2930,46 @@ const styles = StyleSheet.create({
 
 
     /* =========================================================================
-       SMALL CARDS
+       INFO CARDS
        ========================================================================= */
 
-    smallCard: {
+    infoCard: {
         flex: 1,
-        minHeight: 150,
-        padding: 17,
-        borderRadius: 16,
+        minHeight: 82,
+        padding: 12,
+        borderRadius: 14,
         backgroundColor: '#ffffff',
         borderWidth: 1,
         borderColor: '#e2e8f0',
+        flexDirection: 'row',
+        alignItems: 'center',
     },
 
-
-    smallCardIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 11,
+    infoCardIcon: {
+        width: 36,
+        height: 36,
+        borderRadius: 10,
         backgroundColor: '#f1f5f9',
         alignItems: 'center',
         justifyContent: 'center',
+        marginRight: 10,
     },
 
+    infoCardContent: {
+        flex: 1,
+    },
 
-    smallCardLabel: {
-        marginTop: 11,
-        fontSize: 11,
+    infoCardLabel: {
+        fontSize: 9.5,
         fontWeight: '700',
         color: '#64748b',
     },
 
-
-    smallCardValue: {
+    infoCardValue: {
         marginTop: 3,
         fontSize: 22,
         fontWeight: '900',
         color: '#0f172a',
-    },
-
-
-    smallCardHint: {
-        marginTop: 1,
-        fontSize: 9,
-        color: '#94a3b8',
     },
 
 
@@ -3231,10 +2978,11 @@ const styles = StyleSheet.create({
        ========================================================================= */
 
     lastDepositCard: {
-        marginTop: 12,
-        padding: 17,
-        minHeight: 78,
-        borderRadius: 16,
+        marginTop: 10,
+        minHeight: 68,
+        paddingHorizontal: 13,
+        paddingVertical: 10,
+        borderRadius: 14,
         backgroundColor: '#ffffff',
         borderWidth: 1,
         borderColor: '#e2e8f0',
@@ -3243,59 +2991,52 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
 
-
     lastDepositLeft: {
         flexDirection: 'row',
         alignItems: 'center',
         flex: 1,
     },
 
-
     lastDepositIcon: {
-        width: 43,
-        height: 43,
-        borderRadius: 12,
-        backgroundColor: '#f1f5f9',
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        backgroundColor: '#f0fdf4',
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 11,
+        marginRight: 10,
     },
-
 
     lastDepositTextContainer: {
         flex: 1,
     },
 
-
     lastDepositTitle: {
-        fontSize: 12,
+        fontSize: 10.5,
         fontWeight: '800',
         color: '#334155',
     },
 
-
     lastDepositDescription: {
-        marginTop: 3,
-        fontSize: 9,
+        marginTop: 2,
+        fontSize: 8,
         color: '#94a3b8',
     },
-
 
     lastDepositRight: {
         alignItems: 'flex-end',
     },
 
-
     lastDepositWeekValue: {
-        fontSize: 13,
+        fontSize: 11,
         fontWeight: '900',
         color: '#0f172a',
     },
 
-
     lastDepositDate: {
-        marginTop: 3,
+        marginTop: 2,
         fontSize: 9,
+        fontWeight: '600',
         color: '#64748b',
     },
 
@@ -3305,102 +3046,123 @@ const styles = StyleSheet.create({
        ========================================================================= */
 
     weekProgressCard: {
-        marginTop: 12,
-        padding: 17,
-        borderRadius: 16,
+        marginTop: 10,
+        padding: 13,
+        borderRadius: 14,
         backgroundColor: '#ffffff',
         borderWidth: 1,
         borderColor: '#e2e8f0',
     },
 
-
-    sectionTitle: {
-        fontSize: 13,
-        fontWeight: '800',
-        color: '#0f172a',
-        marginBottom: 13,
+    weekStatusHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 10,
     },
 
-
-    weekProgressRow: {
+    weekStatusTitleArea: {
         flexDirection: 'row',
         alignItems: 'center',
     },
 
+    weekStatusIcon: {
+        width: 28,
+        height: 28,
+        borderRadius: 8,
+        backgroundColor: '#f1f5f9',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 8,
+    },
+
+    sectionTitle: {
+        fontSize: 11,
+        fontWeight: '800',
+        color: '#0f172a',
+    },
+
+    weekProgressRow: {
+        flexDirection: 'row',
+        alignItems: 'stretch',
+    },
 
     currentWeekBox: {
         flex: 1,
-        padding: 14,
-        borderRadius: 12,
+        paddingHorizontal: 11,
+        paddingVertical: 10,
+        borderRadius: 11,
         backgroundColor: '#f8fafc',
         borderWidth: 1,
         borderColor: '#e2e8f0',
     },
 
-
     nextWeekBox: {
         flex: 1,
-        padding: 14,
-        borderRadius: 12,
+        paddingHorizontal: 11,
+        paddingVertical: 10,
+        borderRadius: 11,
         backgroundColor: '#fff7f7',
         borderWidth: 1,
         borderColor: '#fecaca',
     },
 
-
     weekArrow: {
-        width: 36,
+        width: 32,
         alignItems: 'center',
         justifyContent: 'center',
     },
 
+    weekArrowCircle: {
+        width: 25,
+        height: 25,
+        borderRadius: 13,
+        backgroundColor: '#f1f5f9',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
 
     weekBoxLabel: {
-        fontSize: 9,
+        fontSize: 8.5,
         fontWeight: '700',
         color: '#64748b',
     },
 
+    weekInfoRow: {
+        marginTop: 4,
+    },
 
     currentWeekNumber: {
-        marginTop: 5,
-        fontSize: 16,
+        fontSize: 13,
         fontWeight: '900',
         color: '#0f172a',
     },
 
-
     currentWeekDate: {
-        marginTop: 3,
-        fontSize: 10,
+        marginTop: 2,
+        fontSize: 8.5,
         color: '#64748b',
     },
 
-
     nextWeekLabel: {
-        fontSize: 9,
+        fontSize: 8.5,
         fontWeight: '700',
         color: '#dc2626',
     },
 
-
     nextWeekNumber: {
-        marginTop: 5,
-        fontSize: 16,
+        fontSize: 13,
         fontWeight: '900',
         color: '#dc2626',
     },
 
-
     nextWeekDate: {
-        marginTop: 3,
-        fontSize: 10,
+        marginTop: 2,
+        fontSize: 8.5,
         color: '#ef4444',
     },
 
-
     bottomSpacing: {
-        height: 25,
+        height: 18,
     },
 
 
@@ -3543,9 +3305,9 @@ const styles = StyleSheet.create({
 
 
     menuItem: {
-        minHeight: 42,
-        borderRadius: 9,
-        paddingHorizontal: 10,
+        minHeight: 46,
+        borderRadius: 10,
+        paddingHorizontal: 12,
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 2,
@@ -3567,8 +3329,8 @@ const styles = StyleSheet.create({
 
 
     menuItemText: {
-        marginLeft: 10,
-        fontSize: 11,
+        marginLeft: 12,
+        fontSize: 12,
         fontWeight: '700',
         flex: 1,
         color: '#334155',
@@ -3583,8 +3345,8 @@ const styles = StyleSheet.create({
     menuDivider: {
         height: 1,
         backgroundColor: '#e2e8f0',
-        marginVertical: 7,
-        marginHorizontal: 6,
+        marginVertical: 10,
+        marginHorizontal: 7,
     },
 
 
@@ -3593,8 +3355,8 @@ const styles = StyleSheet.create({
        ========================================================================= */
 
     languageMenu: {
-        minHeight: 50,
-        paddingHorizontal: 10,
+        minHeight: 55,
+        paddingHorizontal: 12,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -3618,7 +3380,7 @@ const styles = StyleSheet.create({
 
     languageOption: {
         paddingHorizontal: 8,
-        paddingVertical: 5,
+        paddingVertical: 6,
         borderRadius: 7,
     },
 
@@ -3650,9 +3412,9 @@ const styles = StyleSheet.create({
        ========================================================================= */
 
     logoutButton: {
-        minHeight: 42,
-        borderRadius: 9,
-        paddingHorizontal: 10,
+        minHeight: 46,
+        borderRadius: 10,
+        paddingHorizontal: 12,
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: '#fef2f2',
@@ -3665,8 +3427,8 @@ const styles = StyleSheet.create({
 
 
     logoutText: {
-        marginLeft: 10,
-        fontSize: 11,
+        marginLeft: 12,
+        fontSize: 12,
         fontWeight: '800',
         color: '#dc2626',
     },
