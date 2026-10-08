@@ -1144,7 +1144,7 @@ export async function findAdminById(
 
   const rows =
     await getSheetValues(
-      "Admins!A:J"
+      "Admins!A:K"
     );
 
 
@@ -1477,7 +1477,7 @@ export async function changeAdminPassword(
 
   const rows =
     await getSheetValues(
-      "Admins!A:J"
+      "Admins!A:K"
     );
 
   if (
@@ -1567,7 +1567,7 @@ export async function updateAdminLastLogin(
 
   const rows =
     await getSheetValues(
-      "Admins!A:J"
+      "Admins!A:K"
     );
 
   if (
@@ -1711,7 +1711,7 @@ export async function deleteAdminAccount(
 
   const rows =
     await getSheetValues(
-      "Admins!A:J"
+      "Admins!A:K"
     );
 
   if (
@@ -2951,7 +2951,7 @@ export async function resetAdminPassword(
 
   const rows =
     await getSheetValues(
-      "Admins!A:J"
+      "Admins!A:k"
     );
 
 
@@ -3467,7 +3467,7 @@ export async function createAdminWeeklyDeposit(
 
   const memberRows =
     await getSheetValues(
-      "Members!A:J"
+      "Members!A:k"
     );
 
 
@@ -4414,7 +4414,7 @@ export async function approvePendingAdminDeposit(
 
   const memberRows =
     await getSheetValues(
-      "Members!A:J"
+      "Members!A:k"
     );
 
 
