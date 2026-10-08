@@ -1,13 +1,19 @@
+
 {
   "expo": {
-    "name": "khudro-sanchoy",
+    "name": "ক্ষুদ্র সঞ্চয়",
     "slug": "khudro-sanchoy",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/logo.jpg",
     "userInterfaceStyle": "light",
-
     "scheme": "khudrosanchoy",
+
+    "splash": {
+      "image": "./assets/splash.jpg",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
 
     "ios": {
       "supportsTablet": true
@@ -20,21 +26,30 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.abdul_alim_sarkar.khudrosanchoy"
     },
 
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/logo.jpg"
     },
 
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-font"
     ],
 
     "experiments": {
       "typedRoutes": true
+    },
+
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e8d38a24-e520-4ac9-918b-f7858c3d424d"
+      }
     }
   }
 }

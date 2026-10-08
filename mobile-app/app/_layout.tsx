@@ -17,6 +17,8 @@ export default function RootLayout() {
       <Stack.Screen name="member/change-email" />
       <Stack.Screen name="member/change-pin" />
       <Stack.Screen name="member/deposit" />
+      <Stack.Screen name="member/pending-deposit" />
+      <Stack.Screen name="member/deposit-history" />
       <Stack.Screen name="member/forget-pin" />
 
       {/* Admin */}
