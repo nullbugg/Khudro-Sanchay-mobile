@@ -4,34 +4,43 @@
     "slug": "khudro-sanchoy",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/logo.jpg",
+    "icon": "./assets/logo.png",
     "userInterfaceStyle": "light",
     "scheme": "khudrosanchoy",
-    "splash": {
-      "image": "./assets/splash-icon.jpg",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
+
     "ios": {
       "supportsTablet": true
     },
+
     "android": {
-      "icon": "./assets/logo.jpg",
+      "icon": "./assets/logo.png",
       "predictiveBackGestureEnabled": false,
       "package": "com.abdul_alim_sarkar.khudrosanchoy"
     },
+
     "web": {
-      "favicon": "./assets/logo.jpg"
+      "favicon": "./assets/logo.png"
     },
+
     "plugins": [
       "expo-router",
       "expo-secure-store",
       "expo-status-bar",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ]
     ],
+
     "experiments": {
       "typedRoutes": true
     },
+
     "extra": {
       "router": {},
       "eas": {

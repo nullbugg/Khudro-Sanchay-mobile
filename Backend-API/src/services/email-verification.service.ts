@@ -56,42 +56,12 @@ const otpStore =
    EMAIL TRANSPORTER
    ========================================================================== */
 
-const smtpEmail =
-  process.env.SMTP_EMAIL;
-
-const smtpAppPassword =
-  process.env.SMTP_APP_PASSWORD;
-
-if (
-  !smtpEmail ||
-  !smtpAppPassword
-) {
-  console.warn(
-    "[Email Verification] SMTP_EMAIL or SMTP_APP_PASSWORD is missing."
-  );
-}
 
 const gmailUser =
   process.env.GMAIL_USER?.trim();
 
 const gmailAppPassword =
   process.env.GMAIL_APP_PASSWORD?.trim();
-
-console.log(
-  "EMAIL SERVICE ENV CHECK"
-);
-
-console.log(
-  "GMAIL_USER:",
-  gmailUser || "MISSING"
-);
-
-console.log(
-  "GMAIL_APP_PASSWORD:",
-  gmailAppPassword
-    ? `LOADED (${gmailAppPassword.length} chars)`
-    : "MISSING"
-);
 
 if (!gmailUser) {
   throw new Error(
@@ -108,37 +78,28 @@ if (!gmailAppPassword) {
 const transporter =
   nodemailer.createTransport({
     host: "smtp.gmail.com",
-
     port: 465,
-
     secure: true,
-
     auth: {
       user: gmailUser,
-
       pass: gmailAppPassword,
     },
   });
 
-transporter.verify(
-  (error, success) => {
-
-    if (error) {
-
-      console.error(
-        "GMAIL SMTP VERIFY FAILED:",
-        error
-      );
-
-    } else {
-
-      console.log(
-        "GMAIL SMTP READY:",
-        success
-      );
-    }
+transporter.verify((error, success) => {
+  if (error) {
+    console.error(
+      "GMAIL SMTP VERIFY FAILED:",
+      error
+    );
+  } else {
+    console.log(
+      "GMAIL SMTP READY:",
+      success
+    );
   }
-);
+});
+
 
 
 /* ==========================================================================
@@ -385,7 +346,7 @@ export async function sendAdminEmailOTP(
     await transporter.sendMail({
 
       from:
-        `"Khudro Sanchoy" <${smtpEmail}>`,
+        `"Khudro Sanchoy" <${gmailUser}>`,
 
       to: email,
 

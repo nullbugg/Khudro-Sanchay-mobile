@@ -71,16 +71,16 @@ const translations = {
             'প্রোফাইল',
 
         changeGmail:
-            'Gmail পরিবর্তন',
+            'জি-মেইল পরিবর্তন',
 
         changePin:
-            'PIN পরিবর্তন',
+            'পিন পরিবর্তন',
 
         weeklyDeposit:
             'সাপ্তাহিক জমা',
 
         pendingDeposit:
-            'পেন্ডিং জমা',
+            'অপেক্ষমাণ জমা',
 
         weeklyHistory:
             'সাপ্তাহিক জমার হিস্টরি',
@@ -2798,7 +2798,7 @@ const styles = StyleSheet.create({
 
     overlayContainer: {
         position: 'absolute',
-        top: 30,
+        top: 0,
         left: 0,
         right: 0,
         bottom: 0,

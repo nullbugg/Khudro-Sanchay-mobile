@@ -940,50 +940,36 @@ function MenuItem({
     active = false,
     onPress,
 }: {
-    icon: React.ComponentProps<
-        typeof Ionicons
-    >['name'];
+    icon: React.ComponentProps<typeof Ionicons>['name'];
     label: string;
     active?: boolean;
     onPress: () => void;
 }) {
+    const [pressed, setPressed] = React.useState(false);
+
     return (
         <Pressable
-            onPress={
-                onPress
-            }
-            style={({
-                pressed,
-            }) => [
-                    styles.menuItem,
-                    active &&
-                    styles.menuItemActive,
-                    pressed &&
-                    !active &&
-                    styles.menuItemPressed,
-                ]}
+            onPress={onPress}
+            onPressIn={() => setPressed(true)}
+            onPressOut={() => setPressed(false)}
+            style={[
+                styles.menuItem,
+                active && styles.menuItemActive,
+                pressed && styles.menuItemPressed,
+            ]}
         >
-            <View
-                style={
-                    styles.menuItemIconContainer
-                }
-            >
+            <View style={styles.menuItemIconContainer}>
                 <Ionicons
                     name={icon}
                     size={19}
-                    color={
-                        active
-                            ? '#ffffff'
-                            : '#64748b'
-                    }
+                    color={pressed || active ? '#ffffff' : '#64748b'}
                 />
             </View>
 
             <Text
                 style={[
                     styles.menuItemText,
-                    active &&
-                    styles.menuItemTextActive,
+                    (pressed || active) && styles.menuItemTextPressed,
                 ]}
             >
                 {label}
@@ -3051,23 +3037,17 @@ const styles =
 
         drawerSafeArea: {
             flex: 1,
-            transform: [
-                { translateY: -30 },
-            ],
+            transform: [{ translateY: -30 }],
         },
 
         drawerHeader: {
             minHeight: 76,
             paddingHorizontal: 17,
             borderBottomWidth: 1,
-            borderBottomColor:
-                '#e2e8f0',
-            flexDirection:
-                'row',
-            alignItems:
-                'center',
-            justifyContent:
-                'space-between',
+            borderBottomColor: '#e2e8f0',
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
         },
 
         drawerBrand: {
@@ -3138,22 +3118,22 @@ const styles =
             minHeight: 46,
             borderRadius: 10,
             paddingHorizontal: 12,
-            flexDirection:
-                'row',
-            alignItems:
-                'center',
+            flexDirection: 'row',
+            alignItems: 'center',
             marginBottom: 2,
             overflow: 'hidden',
         },
 
         menuItemActive: {
-            backgroundColor:
-                '#0f172a',
+            backgroundColor: '#0f172a',
         },
 
         menuItemPressed: {
-            backgroundColor:
-                '#f1f5f9',
+            backgroundColor: '#0f172a',
+        },
+
+        menuItemTextPressed: {
+            color: '#ffffff',
         },
 
         menuItemIconContainer: {

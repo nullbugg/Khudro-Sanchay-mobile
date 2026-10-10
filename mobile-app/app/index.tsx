@@ -28,7 +28,7 @@ const translations = {
     memberLogin: 'মেম্বার লগইন',
     memberDescription:
       'আপনার সদস্য অ্যাকাউন্টে প্রবেশ করে সঞ্চয় ও হিসাব দেখুন।',
-    memberButton: 'মেম্বার হিসেবে লগইন করুন',
+    memberButton: 'লগইন করুন',
 
     adminLogin: 'অ্যাডমিন লগইন',
     adminDescription:
@@ -72,7 +72,7 @@ const translations = {
     memberLogin: 'Member Login',
     memberDescription:
       'Access your member account and view your savings and account history.',
-    memberButton: 'Login as Member',
+    memberButton: 'Login',
 
     adminLogin: 'Admin Login',
     adminDescription:

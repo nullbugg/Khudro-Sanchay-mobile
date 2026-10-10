@@ -85,20 +85,6 @@ const emailChangeOTPStore =
    EMAIL TRANSPORTER
    ========================================================================== */
 
-const smtpEmail =
-  process.env.SMTP_EMAIL?.trim();
-
-const smtpAppPassword =
-  process.env.SMTP_APP_PASSWORD?.trim();
-
-if (
-  !smtpEmail ||
-  !smtpAppPassword
-) {
-  console.warn(
-    "[Email Change] SMTP_EMAIL or SMTP_APP_PASSWORD is missing."
-  );
-}
 
 const gmailUser =
   process.env.GMAIL_USER?.trim();
@@ -121,33 +107,28 @@ if (!gmailAppPassword) {
 const transporter =
   nodemailer.createTransport({
     host: "smtp.gmail.com",
-
     port: 465,
-
     secure: true,
-
     auth: {
       user: gmailUser,
-
       pass: gmailAppPassword,
     },
   });
 
-transporter.verify(
-  (error, success) => {
-    if (error) {
-      console.error(
-        "GMAIL SMTP VERIFY FAILED:",
-        error
-      );
-    } else {
-      console.log(
-        "GMAIL SMTP READY:",
-        success
-      );
-    }
+transporter.verify((error, success) => {
+  if (error) {
+    console.error(
+      "GMAIL SMTP VERIFY FAILED:",
+      error
+    );
+  } else {
+    console.log(
+      "GMAIL SMTP READY:",
+      success
+    );
   }
-);
+});
+
 
 /* ==========================================================================
    HELPERS
@@ -758,7 +739,7 @@ export async function sendEmailChangeOTP(
     await transporter.sendMail({
 
       from:
-        `"Khudro Sanchoy" <${smtpEmail || gmailUser}>`,
+        `"Khudro Sanchoy" <${gmailUser}>`,
 
       to:
         normalizedNewEmail,

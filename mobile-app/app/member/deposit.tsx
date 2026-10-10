@@ -2769,7 +2769,7 @@ export default function MemberDeposit() {
                                     }
                                     onPress={() =>
                                         handleMenuPress(
-                                            '/member/change-gmail'
+                                            '/member/change-email'
                                         )
                                     }
                                 />
