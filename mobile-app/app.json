@@ -7,21 +7,17 @@
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "light",
     "scheme": "khudrosanchoy",
-
     "ios": {
       "supportsTablet": true
     },
-
     "android": {
       "icon": "./assets/logo.png",
       "predictiveBackGestureEnabled": false,
       "package": "com.abdul_alim_sarkar.khudrosanchoy"
     },
-
     "web": {
       "favicon": "./assets/logo.png"
     },
-
     "plugins": [
       "expo-router",
       "expo-secure-store",
@@ -31,16 +27,15 @@
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",
+          "imageWidth": 1000,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
       ]
     ],
-
     "experiments": {
       "typedRoutes": true
     },
-
     "extra": {
       "router": {},
       "eas": {

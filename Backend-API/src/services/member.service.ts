@@ -5298,54 +5298,50 @@ export async function verifyMemberRegistrationOTP(
   const sheetRowNumber =
     rowIndex + 2;
 
-  /*
-   * Preserve existing values:
-   *
-   * G = PIN Hash       -> update
-   * H = Status         -> preserve
-   * I = Created At     -> preserve
-   * J = Updated At     -> update
-   * K = Gmail          -> update
-   */
+
+  const currentRow = dataRows[rowIndex];
 
   const currentStatus =
-    String(
-      dataRows[rowIndex][7] ??
-      ""
-    ).trim();
+    String(currentRow[7] ?? "").trim();
 
   const currentCreatedAt =
-    String(
-      dataRows[rowIndex][8] ??
-      ""
-    ).trim();
+    String(currentRow[8] ?? "").trim();
 
-  const now =
-    new Date().toISOString();
+  const now = new Date().toISOString();
 
   /*
-   * Update G:K in ONE operation.
+   * Update Members!B:K in ONE operation.
    *
-   * This prevents H and I from
-   * being accidentally changed.
+   * B = Member Name       -> update with new name
+   * C = Phone             -> preserve
+   * D = Join Date         -> preserve
+   * E = Share Count       -> preserve
+   * F = Weekly Amount     -> preserve
+   * G = PIN Hash          -> update
+   * H = Status            -> preserve
+   * I = Created At        -> preserve
+   * J = Updated At        -> update
+   * K = Gmail             -> update
    */
 
   await updateSheetValues(
-    `Members!G${sheetRowNumber}:K${sheetRowNumber}`,
+    `Members!B${sheetRowNumber}:K${sheetRowNumber}`,
     [
       [
+        pending.memberName,
+        currentRow[2] ?? "",
+        currentRow[3] ?? "",
+        currentRow[4] ?? "",
+        currentRow[5] ?? "",
         pending.pinHash,
-
         currentStatus,
-
         currentCreatedAt,
-
         now,
-
         pending.email,
       ],
     ]
   );
+
 
   /*
    * Registration completed.
