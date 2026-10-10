@@ -478,16 +478,16 @@ export default function AccessMemberScreen() {
                                         0
                                     ),
 
+
                                 status:
                                     String(
-                                        member.status ??
-                                        ''
+                                        member.status ?? ''
                                     )
                                         .trim()
-                                        .toUpperCase() ===
-                                    'ACTIVE'
-                                        ? 'ACTIVE'
-                                        : 'INACTIVE',
+                                        .toUpperCase() === 'ACTIVE'
+                                        ? ('ACTIVE' as const)
+                                        : ('INACTIVE' as const),
+
 
                             })
                         )

@@ -850,17 +850,20 @@ export default function MemberDashboard() {
        LOGOUT
        ========================================================================== */
 
+
     const handleLogout = () => {
-
         closeMenu(() => {
-
-            router.replace(
-                '/member/login'
-            );
-
+            void (async () => {
+                try {
+                    await clearCurrentMember();
+                    router.replace('/');
+                } catch (error) {
+                    console.error('Logout error:', error);
+                }
+            })();
         });
-
     };
+
 
 
     /* ==========================================================================

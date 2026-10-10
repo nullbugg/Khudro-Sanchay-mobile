@@ -120,28 +120,34 @@ let currentMember: Member | null =
 |--------------------------------------------------------------------------
 */
 
+
 async function saveMemberSession(
     member: Member
 ): Promise<void> {
     try {
-        currentMember = member;
-
         await AsyncStorage.setItem(
             MEMBER_SESSION_KEY,
             JSON.stringify(member)
         );
+
+        currentMember = member;
 
         console.log(
             'Member session saved:',
             member.memberId
         );
     } catch (error) {
+        currentMember = null;
+
         console.error(
             'Failed to save member session:',
             error
         );
+
+        throw error;
     }
 }
+
 
 /*
 |--------------------------------------------------------------------------
@@ -483,7 +489,7 @@ export async function verifyMemberEmailChangePin(
             const error =
                 new Error(
                     data?.message ||
-                        'PIN verification failed'
+                    'PIN verification failed'
                 ) as Error & {
                     code?: string;
                 };
@@ -584,7 +590,7 @@ export async function sendMemberEmailChangeOTP(
             const error =
                 new Error(
                     data?.message ||
-                        'OTP পাঠানো যায়নি'
+                    'OTP পাঠানো যায়নি'
                 ) as Error & {
                     code?: string;
                     resendAfter?: number;
@@ -685,7 +691,7 @@ export async function resendMemberEmailChangeOTP(
             const error =
                 new Error(
                     data?.message ||
-                        'OTP আবার পাঠানো যায়নি'
+                    'OTP আবার পাঠানো যায়নি'
                 ) as Error & {
                     code?: string;
                     resendAfter?: number;
@@ -783,7 +789,7 @@ export async function verifyMemberEmailChangeOTP(
             const error =
                 new Error(
                     data?.message ||
-                        'OTP verification failed'
+                    'OTP verification failed'
                 ) as Error & {
                     code?: string;
                 };
@@ -1451,7 +1457,7 @@ export async function getMemberDashboard(
                 data?.success
                     ? 'Dashboard loaded'
                     : data?.message ||
-                      'Dashboard load করা যায়নি',
+                    'Dashboard load করা যায়নি',
 
             member:
                 data?.member,
@@ -1608,24 +1614,31 @@ export async function updateMemberProfile(
 |--------------------------------------------------------------------------
 */
 
+
 export async function clearCurrentMember(): Promise<void> {
+    // প্রথমে মেমোরি থেকে সেশন মুছে ফেলবে
     currentMember = null;
 
     try {
-        await AsyncStorage.removeItem(
+        // তারপর ফোনের persistent storage থেকে মুছে ফেলবে
+        await AsyncStorage.removeItem(MEMBER_SESSION_KEY);
+
+        // নিশ্চিত করবে যে সেশন মুছে গেছে
+        const remainingSession = await AsyncStorage.getItem(
             MEMBER_SESSION_KEY
         );
 
-        console.log(
-            'Current member session cleared'
-        );
+        if (remainingSession !== null) {
+            throw new Error('Member session was not removed from storage.');
+        }
+
+        console.log('Member logout successful. Session cleared.');
     } catch (error) {
-        console.error(
-            'Failed to clear member session:',
-            error
-        );
+        console.error('Failed to clear member session:', error);
+        throw error;
     }
 }
+
 
 /*
 |--------------------------------------------------------------------------
@@ -2095,7 +2108,7 @@ export async function sendMemberPinResetOTP(
     if (!response.ok) {
         throw new Error(
             data?.message ||
-                "Failed to send OTP"
+            "Failed to send OTP"
         );
     }
 
@@ -2140,7 +2153,7 @@ export async function verifyMemberPinResetOTP(
     if (!response.ok) {
         throw new Error(
             data?.message ||
-                "Invalid OTP"
+            "Invalid OTP"
         );
     }
 
@@ -2186,7 +2199,7 @@ export async function resendMemberPinResetOTP(
         const error =
             new Error(
                 data?.message ||
-                    "Failed to resend OTP"
+                "Failed to resend OTP"
             );
 
         (
@@ -2253,7 +2266,7 @@ export async function resetMemberPin(
     if (!response.ok) {
         throw new Error(
             data?.message ||
-                "Failed to reset PIN"
+            "Failed to reset PIN"
         );
     }
 

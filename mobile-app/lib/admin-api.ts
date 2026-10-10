@@ -463,10 +463,12 @@ export async function adminLogin(
                 data.sessionToken || null;
 
 
-            console.log(
-                "Current admin saved:",
-                currentAdmin.adminId
-            );
+            if (currentAdmin) {
+                console.log(
+                    "Current admin saved:",
+                    currentAdmin.adminId
+                );
+            }
 
             console.log(
                 "Admin session token saved:",
