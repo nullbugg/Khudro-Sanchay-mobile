@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
+import { ActivityIndicator, Image } from 'react-native';
+import { getCurrentMember } from '../lib/member-api';
 import {
   Pressable,
   ScrollView,
@@ -103,8 +105,115 @@ const translations = {
 
 export default function HomeScreen() {
   const [language, setLanguage] = useState<Language>('bn');
+  const [checkingSession, setCheckingSession] = useState(true);
 
   const t = translations[language];
+
+
+  useEffect(() => {
+    let isMounted = true;
+    const startedAt = Date.now();
+    const minimumSplashTime = 1200;
+
+    const checkMemberSession = async () => {
+      try {
+        const result = await getCurrentMember();
+
+        const remainingTime = Math.max(
+          0,
+          minimumSplashTime - (Date.now() - startedAt)
+        );
+
+        if (remainingTime > 0) {
+          await new Promise<void>((resolve) => {
+            setTimeout(resolve, remainingTime);
+          });
+        }
+
+        if (!isMounted) return;
+
+        if (result.success && result.member?.memberId) {
+          router.replace('/member/dashboard');
+          return;
+        }
+
+        setCheckingSession(false);
+      } catch (error) {
+        console.error('Member session check error:', error);
+
+        const remainingTime = Math.max(
+          0,
+          minimumSplashTime - (Date.now() - startedAt)
+        );
+
+        if (remainingTime > 0) {
+          await new Promise<void>((resolve) => {
+            setTimeout(resolve, remainingTime);
+          });
+        }
+
+        if (isMounted) {
+          setCheckingSession(false);
+        }
+      }
+    };
+
+    checkMemberSession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+
+
+
+  if (checkingSession) {
+    return (
+      <SafeAreaView style={styles.splashContainer}>
+        <View style={styles.splashContent}>
+          <View style={styles.splashLogoContainer}>
+            <Image
+              source={require('../assets/splash-logo.png')}
+              style={styles.splashLogo}
+              resizeMode="contain"
+            />
+          </View>
+
+          <Text style={styles.splashAppName}>
+            ক্ষুদ্র সঞ্চয়
+          </Text>
+
+          <Text style={styles.splashSubtitle}>
+            সমবায় সমিতি
+          </Text>
+
+          <View style={styles.splashDivider} />
+
+          <ActivityIndicator
+            size="large"
+            color="#0f172a"
+            style={styles.splashLoader}
+          />
+
+          <Text style={styles.splashLoadingText}>
+            আপনার তথ্য যাচাই করা হচ্ছে...
+          </Text>
+        </View>
+
+        <View style={styles.splashFooter}>
+          <Text style={styles.splashFooterText}>
+            ক্ষুদ্র সঞ্চয় সমবায় সমিতি
+          </Text>
+
+          <Text style={styles.splashDeveloper}>
+            Developed by Abdul Alim Sarkar
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -793,6 +902,106 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     textAlign: 'center',
   },
+
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  loadingText: {
+    marginTop: 12,
+    fontSize: 13,
+    color: '#64748b',
+  },
+
+  /* ---------------------------------------------------------------------- */
+  /* Splash                                                                 */
+  /* ---------------------------------------------------------------------- */
+
+
+  splashContainer: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+
+  splashContent: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  splashLogoContainer: {
+    width: 124,
+    height: 124,
+    borderRadius: 28,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 22,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+
+  splashLogo: {
+    width: 104,
+    height: 104,
+  },
+
+  splashAppName: {
+    fontSize: 30,
+    fontWeight: '900',
+    color: '#0f172a',
+    textAlign: 'center',
+  },
+
+  splashSubtitle: {
+    marginTop: 7,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+
+  splashDivider: {
+    width: 54,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#0f172a',
+    marginTop: 24,
+  },
+
+  splashLoader: {
+    marginTop: 30,
+  },
+
+  splashLoadingText: {
+    marginTop: 14,
+    fontSize: 13,
+    color: '#64748b',
+    textAlign: 'center',
+  },
+
+  splashFooter: {
+    alignItems: 'center',
+    paddingBottom: 22,
+  },
+
+  splashFooterText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+  },
+
+  splashDeveloper: {
+    marginTop: 6,
+    fontSize: 10,
+    color: '#94a3b8',
+  },
+
 
   /* ---------------------------------------------------------------------- */
   /* Features                                                               */

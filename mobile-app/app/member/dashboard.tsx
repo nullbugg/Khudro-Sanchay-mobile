@@ -854,8 +854,6 @@ export default function MemberDashboard() {
 
         closeMenu(() => {
 
-            clearCurrentMember();
-
             router.replace(
                 '/member/login'
             );
