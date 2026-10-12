@@ -1966,6 +1966,102 @@ export async function getAdminMembers(): Promise<GetAdminMembersResult> {
     }
 }
 
+
+export type GetAdminMemberDetailsResult = {
+    success: boolean;
+    message: string;
+    member?: {
+        memberId: string;
+        memberName: string;
+        phone: string;
+        email: string;
+        joinDate: string;
+        currentShareCount: number;
+        currentWeeklyAmount: number;
+        status: string;
+    };
+    summary?: {
+        currentWeeklyPaid: number;
+        currentAdvance: number;
+        totalDeposit: number;
+        advanceAmount: number;
+        availableAdvance: number;
+        lastPaymentDate: string;
+        latestWeek: number;
+        currentWeek: number;
+        collectionWeek: number;
+        currentWeekStartDate: string;
+        currentWeekEndDate: string;
+        nextWeek: number;
+        nextWeekStartDate: string;
+        nextWeekEndDate: string;
+        currentWeekPaid: number;
+        currentWeekAdvanceAdded: number;
+    };
+};
+
+export async function getAdminMemberDetails(
+    memberId: string
+): Promise<GetAdminMemberDetailsResult> {
+    try {
+        const encodedMemberId = encodeURIComponent(memberId.trim());
+
+        const response = await fetch(
+            `${API_URL}/api/admin/members/${encodedMemberId}`,
+            {
+                method: "GET",
+                headers: {
+                    Accept: "application/json",
+                },
+            }
+        );
+
+        const contentType = response.headers.get("content-type") || "";
+
+        if (!contentType.includes("application/json")) {
+            const text = await response.text();
+
+            console.error(
+                "Get admin member details non-JSON response:",
+                text
+            );
+
+            return {
+                success: false,
+                message: "Server থেকে সঠিক response পাওয়া যায়নি।",
+            };
+        }
+
+        const data = await response.json();
+
+        if (!response.ok || data?.success !== true) {
+            return {
+                success: false,
+                message:
+                    data?.message ||
+                    "সদস্যের বিস্তারিত তথ্য পাওয়া যায়নি।",
+            };
+        }
+
+        return {
+            success: true,
+            message:
+                data?.message ||
+                "সদস্যের বিস্তারিত তথ্য পাওয়া গেছে।",
+            member: data?.member,
+            summary: data?.summary,
+        };
+    } catch (error) {
+        console.error("Get admin member details API error:", error);
+
+        return {
+            success: false,
+            message: "Server-এর সাথে সংযোগ করা যাচ্ছে না।",
+        };
+    }
+}
+
+
 export async function deleteAdminAccount(
     adminId: string,
     password: string
@@ -4816,6 +4912,117 @@ export async function rejectPendingAdminDeposit(
 
             message:
                 "Server-এর সাথে সংযোগ করা যাচ্ছে না।",
+        };
+    }
+}
+
+
+/* ==========================================================================
+   DELETE ADMIN MEMBER PERMANENTLY
+   ========================================================================== */
+
+export type DeleteAdminMemberResult = {
+    success: boolean;
+    message: string;
+    code?: string;
+    deleted?: {
+        members: number;
+        collections: number;
+        pendingDeposits: number;
+    };
+};
+
+export async function deleteAdminMember(
+    memberId: string
+): Promise<DeleteAdminMemberResult> {
+
+    const normalizedMemberId =
+        String(memberId ?? "")
+            .trim()
+            .toUpperCase();
+
+    if (!normalizedMemberId) {
+        return {
+            success: false,
+            code: "INVALID_MEMBER_ID",
+            message: "সঠিক Member ID পাওয়া যায়নি।",
+        };
+    }
+
+    try {
+        // Admin session পুনরুদ্ধার
+        if (!currentAdminSessionToken) {
+            await restoreAdminSession();
+        }
+
+        // Session না থাকলে delete request পাঠানো হবে না
+        if (!currentAdminSessionToken) {
+            return {
+                success: false,
+                code: "ADMIN_SESSION_NOT_FOUND",
+                message: "Admin session পাওয়া যায়নি। আবার login করুন।",
+            };
+        }
+
+        const response = await fetch(
+            `${API_URL}/api/admin/members/${encodeURIComponent(
+                normalizedMemberId
+            )}`,
+            {
+                method: "DELETE",
+                headers: {
+                    Accept: "application/json",
+                    ...getAdminAuthHeaders(),
+                },
+            }
+        );
+
+        const contentType =
+            response.headers.get("content-type") || "";
+
+        if (!contentType.includes("application/json")) {
+            const responseText = await response.text();
+
+            console.error(
+                "Delete admin member non-JSON response:",
+                responseText
+            );
+
+            return {
+                success: false,
+                message: "Server থেকে সঠিক response পাওয়া যায়নি।",
+            };
+        }
+
+        const data = await response.json();
+
+        if (!response.ok || data?.success !== true) {
+            return {
+                success: false,
+                code: data?.code,
+                message:
+                    data?.message ||
+                    "সদস্য মুছে ফেলা যায়নি।",
+            };
+        }
+
+        return {
+            success: true,
+            code: data?.code || "MEMBER_DELETED",
+            message:
+                data?.message ||
+                "সদস্য সফলভাবে মুছে ফেলা হয়েছে।",
+            deleted: data?.deleted,
+        };
+    } catch (error) {
+        console.error(
+            "Delete admin member API error:",
+            error
+        );
+
+        return {
+            success: false,
+            message: "Server-এর সাথে সংযোগ করা যাচ্ছে না।",
         };
     }
 }

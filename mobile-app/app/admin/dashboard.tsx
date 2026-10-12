@@ -894,7 +894,7 @@ export default function AdminDashboardScreen() {
             await clearCurrentAdmin();
 
             router.replace(
-                '/admin/login'
+                '/'
             );
 
         });

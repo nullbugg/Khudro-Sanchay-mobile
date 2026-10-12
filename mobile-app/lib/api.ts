@@ -1,5 +1,11 @@
 const API_URL =
-  process.env.EXPO_PUBLIC_API_URL;
+  process.env.EXPO_PUBLIC_API_URL?.trim();
+
+if (!API_URL) {
+  throw new Error(
+    'EXPO_PUBLIC_API_URL environment variable is not configured.',
+  );
+}
 
 type ApiOptions = RequestInit & {
   token?: string;
@@ -61,5 +67,11 @@ export async function apiRequest<T>(
 }
 
 export function getApiUrl(): string {
+  if (!API_URL) {
+    throw new Error(
+      'EXPO_PUBLIC_API_URL environment variable is not configured.',
+    );
+  }
+
   return API_URL;
 }

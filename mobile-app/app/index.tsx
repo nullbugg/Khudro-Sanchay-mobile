@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
 import { ActivityIndicator, Image } from 'react-native';
 import { getCurrentMember } from '../lib/member-api';
+import { restoreAdminSession } from '../lib/admin-api';
 import {
   Pressable,
   ScrollView,
@@ -115,9 +116,11 @@ export default function HomeScreen() {
     const startedAt = Date.now();
     const minimumSplashTime = 1200;
 
+
     const checkMemberSession = async () => {
       try {
-        const result = await getCurrentMember();
+        // প্রথমে Admin Session Restore
+        const admin = await restoreAdminSession();
 
         const remainingTime = Math.max(
           0,
@@ -132,6 +135,17 @@ export default function HomeScreen() {
 
         if (!isMounted) return;
 
+        // Admin Session থাকলে Admin Dashboard
+        if (admin) {
+          router.replace('/admin/dashboard');
+          return;
+        }
+
+        // Admin Session না থাকলে আগের Member Session পরীক্ষা
+        const result = await getCurrentMember();
+
+        if (!isMounted) return;
+
         if (result.success && result.member?.memberId) {
           router.replace('/member/dashboard');
           return;
@@ -139,24 +153,14 @@ export default function HomeScreen() {
 
         setCheckingSession(false);
       } catch (error) {
-        console.error('Member session check error:', error);
-
-        const remainingTime = Math.max(
-          0,
-          minimumSplashTime - (Date.now() - startedAt)
-        );
-
-        if (remainingTime > 0) {
-          await new Promise<void>((resolve) => {
-            setTimeout(resolve, remainingTime);
-          });
-        }
+        console.error('Session check error:', error);
 
         if (isMounted) {
           setCheckingSession(false);
         }
       }
     };
+
 
     checkMemberSession();
 

@@ -14,6 +14,7 @@ import {
   appendSheetRow,
   getSheetValues,
   updateSheetValues,
+  deleteSheetRows,
 } from "../config/google-sheets";
 
 import {
@@ -2547,72 +2548,75 @@ export async function getMemberDashboard(
       availableAdvance
     );
 
+
   /*
   |--------------------------------------------------------------------------
   | Last Payment Date
   |--------------------------------------------------------------------------
   */
 
-  const datedCollections =
-    memberCollections
-      .filter(
-        (item) =>
-          item.date
-      )
-      .sort(
-        (a, b) => {
-          const aTime =
-            new Date(
-              a.date
-            ).getTime();
+  function parseCollectionDate(dateValue: string): number {
+    const value = String(dateValue ?? "").trim();
 
-          const bTime =
-            new Date(
-              b.date
-            ).getTime();
+    if (!value) {
+      return Number.NaN;
+    }
 
-          if (
-            Number.isNaN(
-              aTime
-            ) &&
-            Number.isNaN(
-              bTime
-            )
-          ) {
-            return (
-              b.rowIndex -
-              a.rowIndex
-            );
-          }
+    // DD-MM-YYYY
+    const dmyMatch = value.match(
+      /^(\d{2})-(\d{2})-(\d{4})$/
+    );
 
-          if (
-            Number.isNaN(
-              aTime
-            )
-          ) {
-            return 1;
-          }
+    if (dmyMatch) {
+      const day = Number(dmyMatch[1]);
+      const month = Number(dmyMatch[2]);
+      const year = Number(dmyMatch[3]);
 
-          if (
-            Number.isNaN(
-              bTime
-            )
-          ) {
-            return -1;
-          }
-
-          return (
-            bTime - aTime
-          );
-        }
+      const date = new Date(
+        Date.UTC(year, month - 1, day)
       );
 
+      // Invalid date, such as 31-02-2027, must be rejected.
+      if (
+        date.getUTCFullYear() !== year ||
+        date.getUTCMonth() !== month - 1 ||
+        date.getUTCDate() !== day
+      ) {
+        return Number.NaN;
+      }
+
+      return date.getTime();
+    }
+
+    // ISO date or ISO datetime
+    const timestamp = Date.parse(value);
+
+    return Number.isNaN(timestamp)
+      ? Number.NaN
+      : timestamp;
+  }
+
+  const datedCollections = memberCollections
+    .filter((item) => Boolean(item.date))
+    .map((item) => ({
+      ...item,
+      parsedDate: parseCollectionDate(item.date),
+    }))
+    .filter((item) => !Number.isNaN(item.parsedDate))
+    .sort((a, b) => {
+      if (a.parsedDate !== b.parsedDate) {
+        return b.parsedDate - a.parsedDate;
+      }
+
+      // Same date: later Google Sheets row wins.
+      return b.rowIndex - a.rowIndex;
+    });
+
   const lastPaymentDate =
-    datedCollections.length >
-      0
-      ? datedCollections[0]
-        .date
+    datedCollections.length > 0
+      ? datedCollections[0].date
       : "";
+
 
   /*
   |--------------------------------------------------------------------------
@@ -5501,5 +5505,154 @@ export async function resendMemberRegistrationOTP(
     expiresIn: 600,
 
     resendAfter: 60,
+  };
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Permanently Delete Member
+|--------------------------------------------------------------------------
+*/
+
+export async function deleteMemberPermanently(
+  memberId: string
+): Promise<{
+  success: boolean;
+  code: string;
+  deleted?: {
+    members: number;
+    collections: number;
+    pendingDeposits: number;
+  };
+}> {
+  const cleanMemberId =
+    normalizeMemberId(memberId);
+
+  if (!cleanMemberId) {
+    return {
+      success: false,
+      code: "INVALID_MEMBER_ID",
+    };
+  }
+
+  /*
+   * Read all three sheets before deleting anything.
+   */
+
+  const [
+    memberRows,
+    collectionRows,
+    pendingDepositRows,
+  ] = await Promise.all([
+    getSheetValues("Members!A:K"),
+    getSheetValues("Collections!A:L"),
+    getSheetValues("Pending Deposits!A:P"),
+  ]);
+
+  /*
+   * Find exact normalized Member ID matches.
+   * Members: Column A
+   */
+
+  const memberMatches = memberRows
+    .slice(1)
+    .map((row, index) => ({
+      row,
+      rowNumber: index + 2,
+    }))
+    .filter(
+      ({ row }) =>
+        normalizeMemberId(row[0]) ===
+        cleanMemberId
+    );
+
+  if (memberMatches.length === 0) {
+    return {
+      success: false,
+      code: "MEMBER_NOT_FOUND",
+    };
+  }
+
+  /*
+   * Never delete data if the Member ID is duplicated.
+   */
+
+  if (memberMatches.length > 1) {
+    return {
+      success: false,
+      code: "DUPLICATE_MEMBER_ID",
+    };
+  }
+
+  /*
+   * Collections: Member ID is Column B.
+   */
+
+  const collectionMatches = collectionRows
+    .slice(1)
+    .map((row, index) => ({
+      row,
+      rowNumber: index + 2,
+    }))
+    .filter(
+      ({ row }) =>
+        normalizeMemberId(row[1]) ===
+        cleanMemberId
+    );
+
+  /*
+   * Pending Deposits: Member ID is Column B.
+   */
+
+  const pendingDepositMatches =
+    pendingDepositRows
+      .slice(1)
+      .map((row, index) => ({
+        row,
+        rowNumber: index + 2,
+      }))
+      .filter(
+        ({ row }) =>
+          normalizeMemberId(row[1]) ===
+          cleanMemberId
+      );
+
+  /*
+   * Prepare all deletions.
+   * The helper deletes rows bottom-to-top
+   * in a single batchUpdate request.
+   */
+
+  const deletions = [
+    {
+      sheetName: "Members",
+      rowNumber: memberMatches[0].rowNumber,
+    },
+    ...collectionMatches.map(
+      ({ rowNumber }) => ({
+        sheetName: "Collections",
+        rowNumber,
+      })
+    ),
+    ...pendingDepositMatches.map(
+      ({ rowNumber }) => ({
+        sheetName: "Pending Deposits",
+        rowNumber,
+      })
+    ),
+  ];
+
+  await deleteSheetRows(deletions);
+
+  return {
+    success: true,
+    code: "MEMBER_DELETED",
+    deleted: {
+      members: memberMatches.length,
+      collections: collectionMatches.length,
+      pendingDeposits:
+        pendingDepositMatches.length,
+    },
   };
 }

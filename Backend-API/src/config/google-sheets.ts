@@ -224,3 +224,119 @@ export async function deleteSheetRow(
     },
   });
 }
+
+
+export type SheetRowDeletion = {
+  sheetName: string;
+  rowNumber: number;
+};
+
+/**
+ * Deletes multiple rows from one or more Google Sheets tabs.
+ * Rows in each sheet are deleted in descending order so row indexes
+ * do not shift before the remaining deletions are processed.
+ */
+export async function deleteSheetRows(
+  deletions: SheetRowDeletion[]
+): Promise<void> {
+  if (!Array.isArray(deletions)) {
+    throw new Error("Invalid row deletions");
+  }
+
+  if (deletions.length === 0) {
+    return;
+  }
+
+  for (const item of deletions) {
+    if (
+      !item ||
+      typeof item.sheetName !== "string" ||
+      !item.sheetName.trim() ||
+      !Number.isInteger(item.rowNumber) ||
+      item.rowNumber < 2
+    ) {
+      throw new Error("Invalid sheet name or row number");
+    }
+  }
+
+  const spreadsheetId = getSpreadsheetId();
+
+  // Fetch sheet IDs once for all requested deletions.
+  const spreadsheet = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: "sheets.properties",
+  });
+
+  const sheetIds = new Map<string, number>();
+
+  for (const sheet of spreadsheet.data.sheets ?? []) {
+    const title = sheet.properties?.title;
+    const sheetId = sheet.properties?.sheetId;
+
+    if (
+      typeof title === "string" &&
+      typeof sheetId === "number"
+    ) {
+      sheetIds.set(title, sheetId);
+    }
+  }
+
+  // Group requested row numbers by sheet.
+  const rowsBySheet = new Map<string, number[]>();
+
+  for (const item of deletions) {
+    const rows = rowsBySheet.get(item.sheetName) ?? [];
+    rows.push(item.rowNumber);
+    rowsBySheet.set(item.sheetName, rows);
+  }
+
+  const requests: {
+    deleteDimension: {
+      range: {
+        sheetId: number;
+        dimension: "ROWS";
+        startIndex: number;
+        endIndex: number;
+      };
+    };
+  }[] = [];
+
+  for (const [sheetName, rowNumbers] of rowsBySheet) {
+    const sheetId = sheetIds.get(sheetName);
+
+    if (sheetId === undefined) {
+      throw new Error(`Sheet "${sheetName}" not found`);
+    }
+
+    // Duplicate row numbers could accidentally delete the wrong row.
+    if (new Set(rowNumbers).size !== rowNumbers.length) {
+      throw new Error(
+        `Duplicate row numbers found for sheet "${sheetName}"`
+      );
+    }
+
+    // Delete bottom-to-top to prevent row-index shifting.
+    rowNumbers.sort((a, b) => b - a);
+
+    for (const rowNumber of rowNumbers) {
+      requests.push({
+        deleteDimension: {
+          range: {
+            sheetId,
+            dimension: "ROWS",
+            startIndex: rowNumber - 1,
+            endIndex: rowNumber,
+          },
+        },
+      });
+    }
+  }
+
+  // Send all row deletions in one batch request.
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests,
+    },
+  });
+}

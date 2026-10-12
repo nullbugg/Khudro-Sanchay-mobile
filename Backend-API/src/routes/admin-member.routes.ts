@@ -6,8 +6,12 @@ import {
 
 import {
   createMember,
-   getAllMembers,
+  getAllMembers,
+  getMemberDashboard,
+  findMemberById,
+  deleteMemberPermanently,
 } from "../services/member.service";
+
 
 
 const router =
@@ -63,6 +67,46 @@ router.get("/", async (_req: Request, res: Response) => {
     });
   }
 });
+
+
+
+router.get("/:memberId", async (req: Request, res: Response) => {
+  try {
+    const memberId = String(req.params.memberId ?? "").trim();
+
+    if (!memberId) {
+      return res.status(400).json({
+        success: false,
+        message: "Member ID দিতে হবে।",
+      });
+    }
+
+    const dashboard = await getMemberDashboard(memberId);
+
+    if (!dashboard) {
+      return res.status(404).json({
+        success: false,
+        message: "এই Member ID-এর কোনো সদস্য পাওয়া যায়নি।",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Member details successfully fetched",
+      member: dashboard.member,
+      summary: dashboard.summary,
+    });
+  } catch (error) {
+    console.error("Get member details error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "সদস্যের বিস্তারিত তথ্য আনতে server error হয়েছে।",
+    });
+  }
+});
+
+
 
 router.post(
   "/",
@@ -257,13 +301,13 @@ router.post(
 
         if (
           message ===
-            "Member ID is required" ||
+          "Member ID is required" ||
           message ===
-            "Member name is required" ||
+          "Member name is required" ||
           message ===
-            "Phone number is required" ||
+          "Phone number is required" ||
           message ===
-            "Join date is required"
+          "Join date is required"
         ) {
 
           return res.status(400).json({
@@ -314,6 +358,89 @@ router.post(
 
       });
 
+    }
+  }
+);
+
+
+
+/*
+|--------------------------------------------------------------------------
+| DELETE MEMBER PERMANENTLY
+|--------------------------------------------------------------------------
+|
+| DELETE /api/admin/members/:memberId
+|
+| Removes the member and matching rows from:
+| - Members
+| - Collections
+| - Pending Deposits
+|
+|--------------------------------------------------------------------------
+*/
+
+router.delete(
+  "/:memberId",
+  async (req: Request, res: Response) => {
+    try {
+      const memberId = String(
+        req.params.memberId ?? ""
+      ).trim();
+
+      if (!memberId) {
+        return res.status(400).json({
+          success: false,
+          code: "INVALID_MEMBER_ID",
+          message: "Member ID দিতে হবে।",
+        });
+      }
+
+      const result =
+        await deleteMemberPermanently(memberId);
+
+      if (!result.success) {
+        if (result.code === "MEMBER_NOT_FOUND") {
+          return res.status(404).json({
+            success: false,
+            code: result.code,
+            message: "এই Member ID-এর কোনো সদস্য পাওয়া যায়নি।",
+          });
+        }
+
+        if (result.code === "DUPLICATE_MEMBER_ID") {
+          return res.status(409).json({
+            success: false,
+            code: result.code,
+            message:
+              "এই Member ID একাধিকবার রয়েছে। নিরাপত্তার জন্য Delete করা হয়নি।",
+          });
+        }
+
+        return res.status(400).json({
+          success: false,
+          code: result.code,
+          message: "Member ID সঠিক নয়।",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        code: result.code,
+        message: "Member সফলভাবে Delete করা হয়েছে।",
+        deleted: result.deleted,
+      });
+    } catch (error) {
+      console.error(
+        "Permanently delete member error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        code: "DELETE_MEMBER_FAILED",
+        message:
+          "Member Delete করার সময় server error হয়েছে।",
+      });
     }
   }
 );

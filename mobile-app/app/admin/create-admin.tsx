@@ -22,6 +22,7 @@ import {
     Text,
     TextInput,
     View,
+    type EmitterSubscription,
 } from "react-native";
 
 import {
@@ -768,7 +769,7 @@ export default function CreateAdminScreen() {
             };
 
 
-        const subscriptions = [];
+        const subscriptions: EmitterSubscription[] = [];
 
 
         if (Platform.OS === "ios") {
