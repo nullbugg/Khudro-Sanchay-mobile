@@ -10,7 +10,9 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import {
     ActivityIndicator,
     Alert,
+    KeyboardAvoidingView,
     Modal,
+    Platform,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -18,7 +20,6 @@ import {
     Text,
     TextInput,
     View,
-
 } from 'react-native';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -1464,180 +1465,182 @@ export default function AccessMemberDetailsScreen() {
 
             </ScrollView>
 
+
             <Modal
-
                 visible={shareModalVisible}
-
                 transparent
-
                 animationType="slide"
-
+                statusBarTranslucent
                 onRequestClose={() => setShareModalVisible(false)}
-
             >
-
                 <View style={styles.modalBackdrop}>
+                    <KeyboardAvoidingView
+                        style={styles.modalKeyboardAvoiding}
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        keyboardVerticalOffset={0}
+                    >
+                        <ScrollView
+                            style={styles.modalScrollView}
+                            contentContainerStyle={styles.modalScrollContent}
+                            keyboardShouldPersistTaps="handled"
+                            showsVerticalScrollIndicator={false}
+                            bounces={false}
+                        >
+                            <View style={styles.modalCard}>
+                                <View style={styles.modalHeader}>
+                                    <Text style={styles.modalTitle}>
+                                        {t.changeShares}
+                                    </Text>
 
-                    <View style={styles.modalCard}>
+                                    <Pressable
+                                        onPress={() => setShareModalVisible(false)}
+                                        disabled={updatingShares}
+                                        style={styles.modalClose}
+                                    >
+                                        <Ionicons
+                                            name="close"
+                                            size={22}
+                                            color="#475569"
+                                        />
+                                    </Pressable>
+                                </View>
 
-                        <View style={styles.modalHeader}>
+                                <Text style={styles.inputLabel}>
+                                    {t.currentShares}
+                                </Text>
 
-                            <Text style={styles.modalTitle}>{t.changeShares}</Text>
-
-                            <Pressable
-                                onPress={() => setShareModalVisible(false)}
-                                disabled={updatingShares}
-                                style={styles.modalClose}
-                            >
-
-                                <Ionicons name="close" size={22} color="#475569" />
-
-                            </Pressable>
-
-                        </View>
-
-                        <Text style={styles.inputLabel}>{t.currentShares}</Text>
-
-                        <View style={styles.readOnlyInput}>
-
-                            <Text style={styles.readOnlyValue}>
-
-                                {formatNumber(currentShares, language)}
-
-                            </Text>
-
-                        </View>
-
-                        <Text style={styles.inputLabel}>{t.newShares}</Text>
-
-                        <TextInput
-
-                            value={newShares}
-
-                            onChangeText={setNewShares}
-
-                            keyboardType="number-pad"
-
-                            placeholder={`1 - ${MAX_SHARES}`}
-
-                            placeholderTextColor="#94a3b8"
-
-                            style={styles.input}
-
-                        />
-
-
-                        <View style={styles.previewCard}>
-
-                            {previewLoading ? (
-                                <View style={styles.previewLoading}>
-                                    <ActivityIndicator size="small" color="#0f172a" />
-                                    <Text style={styles.previewLoadingText}>
-                                        {t.previewLoading}
+                                <View style={styles.readOnlyInput}>
+                                    <Text style={styles.readOnlyValue}>
+                                        {formatNumber(currentShares, language)}
                                     </Text>
                                 </View>
-                            ) : previewError ? (
-                                <Text style={styles.previewErrorText}>
-                                    {previewError}
+
+                                <Text style={styles.inputLabel}>
+                                    {t.newShares}
                                 </Text>
-                            ) : previewReady && sharePreview ? (
-                                <>
-                                    <PreviewRow
-                                        label={t.newWeeklyAmount}
-                                        value={formatAmount(
-                                            sharePreview.newWeeklyAmount,
-                                            language,
+
+                                <TextInput
+                                    value={newShares}
+                                    onChangeText={setNewShares}
+                                    keyboardType="number-pad"
+                                    placeholder={`1 - ${MAX_SHARES}`}
+                                    placeholderTextColor="#94a3b8"
+                                    style={styles.input}
+                                    returnKeyType="done"
+                                />
+
+                                <View style={styles.previewCard}>
+                                    {previewLoading ? (
+                                        <View style={styles.previewLoading}>
+                                            <ActivityIndicator
+                                                size="small"
+                                                color="#0f172a"
+                                            />
+                                            <Text style={styles.previewLoadingText}>
+                                                {t.previewLoading}
+                                            </Text>
+                                        </View>
+                                    ) : previewError ? (
+                                        <Text style={styles.previewErrorText}>
+                                            {previewError}
+                                        </Text>
+                                    ) : previewReady && sharePreview ? (
+                                        <>
+                                            <PreviewRow
+                                                label={t.newWeeklyAmount}
+                                                value={formatAmount(
+                                                    sharePreview.newWeeklyAmount,
+                                                    language,
+                                                )}
+                                            />
+
+                                            {sharePreview.changeType === 'INCREASE' ? (
+                                                <PreviewRow
+                                                    label={t.additionalDepositAmount}
+                                                    value={formatAmount(
+                                                        sharePreview.additionalDepositAmount,
+                                                        language,
+                                                    )}
+                                                    last
+                                                />
+                                            ) : sharePreview.changeType === 'DECREASE' ? (
+                                                <PreviewRow
+                                                    label={t.refundAmount}
+                                                    value={formatAmount(
+                                                        sharePreview.refundAmount,
+                                                        language,
+                                                    )}
+                                                    last
+                                                />
+                                            ) : null}
+                                        </>
+                                    ) : (
+                                        <Text style={styles.previewErrorText}>
+                                            {t.previewUnavailable}
+                                        </Text>
+                                    )}
+                                </View>
+
+                                <Text style={styles.modalNote}>
+                                    {t.shareNote}
+                                </Text>
+
+                                <View style={styles.modalActions}>
+                                    <Pressable
+                                        onPress={() => setShareModalVisible(false)}
+                                        disabled={updatingShares}
+                                        style={[
+                                            styles.cancelButton,
+                                            updatingShares && { opacity: 0.5 },
+                                        ]}
+                                    >
+                                        <Text style={styles.cancelButtonText}>
+                                            {t.cancel}
+                                        </Text>
+                                    </Pressable>
+
+                                    <Pressable
+                                        onPress={confirmShareUpdate}
+                                        disabled={
+                                            updatingShares ||
+                                            !shareCountValid ||
+                                            !previewReady ||
+                                            requestedShares === currentShares
+                                        }
+                                        style={[
+                                            styles.updateButton,
+                                            (
+                                                updatingShares ||
+                                                !shareCountValid ||
+                                                !previewReady ||
+                                                requestedShares === currentShares
+                                            ) && { opacity: 0.5 },
+                                        ]}
+                                    >
+                                        {updatingShares ? (
+                                            <ActivityIndicator
+                                                size="small"
+                                                color="#ffffff"
+                                            />
+                                        ) : (
+                                            <Ionicons
+                                                name="checkmark-circle-outline"
+                                                size={18}
+                                                color="#ffffff"
+                                            />
                                         )}
-                                    />
 
-                                    {sharePreview.changeType === 'INCREASE' ? (
-                                        <PreviewRow
-                                            label={t.additionalDepositAmount}
-                                            value={formatAmount(
-                                                sharePreview.additionalDepositAmount,
-                                                language,
-                                            )}
-                                            last
-                                        />
-                                    ) : sharePreview.changeType === 'DECREASE' ? (
-                                        <PreviewRow
-                                            label={t.refundAmount}
-                                            value={formatAmount(
-                                                sharePreview.refundAmount,
-                                                language,
-                                            )}
-                                            last
-                                        />
-                                    ) : null}
-                                </>
-                            ) : (
-                                <Text style={styles.previewErrorText}>
-                                    {t.previewUnavailable}
-                                </Text>
-                            )}
-
-                        </View>
-
-                        <Text style={styles.modalNote}>{t.shareNote}</Text>
-
-                        <View style={styles.modalActions}>
-                            <Pressable
-                                onPress={() => setShareModalVisible(false)}
-                                disabled={updatingShares}
-                                style={[
-                                    styles.cancelButton,
-                                    updatingShares && { opacity: 0.5 },
-                                ]}
-                            >
-                                <Text style={styles.cancelButtonText}>
-                                    {t.cancel}
-                                </Text>
-                            </Pressable>
-
-                            <Pressable
-                                onPress={confirmShareUpdate}
-                                disabled={
-                                    updatingShares ||
-                                    !shareCountValid ||
-                                    !previewReady ||
-                                    requestedShares === currentShares
-                                }
-                                style={[
-                                    styles.updateButton,
-                                    (
-                                        updatingShares ||
-                                        !shareCountValid ||
-                                        !previewReady ||
-                                        requestedShares === currentShares
-                                    ) && {
-                                        opacity: 0.5,
-                                    },
-                                ]}
-                            >
-                                {updatingShares ? (
-                                    <ActivityIndicator
-                                        size="small"
-                                        color="#ffffff"
-                                    />
-                                ) : (
-                                    <Ionicons
-                                        name="checkmark-circle-outline"
-                                        size={18}
-                                        color="#ffffff"
-                                    />
-                                )}
-
-                                <Text style={styles.updateButtonText}>
-                                    {updatingShares ? t.updating : t.update}
-                                </Text>
-                            </Pressable>
-                        </View>
-
-                    </View>
-
+                                        <Text style={styles.updateButtonText}>
+                                            {updatingShares ? t.updating : t.update}
+                                        </Text>
+                                    </Pressable>
+                                </View>
+                            </View>
+                        </ScrollView>
+                    </KeyboardAvoidingView>
                 </View>
-
             </Modal>
+
 
         </SafeAreaView>
 
@@ -2349,6 +2352,20 @@ const styles = StyleSheet.create({
     modalBackdrop: {
         flex: 1,
         backgroundColor: 'rgba(15, 23, 42, 0.48)',
+    },
+
+    modalKeyboardAvoiding: {
+        flex: 1,
+        justifyContent: 'flex-end',
+    },
+
+    modalScrollView: {
+        flexGrow: 0,
+        maxHeight: '100%',
+    },
+
+    modalScrollContent: {
+        flexGrow: 1,
         justifyContent: 'flex-end',
     },
 

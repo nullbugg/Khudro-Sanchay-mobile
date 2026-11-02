@@ -527,24 +527,6 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
 
   /*
   |--------------------------------------------------------------------------
-  | 14. Debug Logs
-  |--------------------------------------------------------------------------
-  */
-
-  console.log("ADMIN DASHBOARD FINANCIAL SUMMARY:", {
-    currentWeek,
-    totalCollectionDeposit,
-    additionalShareDeposits,
-    totalWithdrawn,
-    weeklyRefund,
-    advanceRefund,
-    totalWeeklyDeposit,
-    totalAdvance,
-    totalDeposit,
-  });
-
-  /*
-  |--------------------------------------------------------------------------
   | 15. Return
   |--------------------------------------------------------------------------
   */

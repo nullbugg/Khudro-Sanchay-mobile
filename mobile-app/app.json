@@ -13,6 +13,7 @@
     "android": {
       "icon": "./assets/logo.png",
       "predictiveBackGestureEnabled": false,
+      "softwareKeyboardLayoutMode": "resize",
       "package": "com.abdul_alim_sarkar.khudrosanchoy"
     },
     "web": {
