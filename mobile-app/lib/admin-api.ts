@@ -5026,3 +5026,495 @@ export async function deleteAdminMember(
         };
     }
 }
+
+/* ==========================================================================
+   ADMIN MEMBER SHARE MANAGEMENT
+   ========================================================================== */
+
+export type UpdateMemberSharesResult = {
+    success: boolean;
+    message: string;
+    data?: any;
+};
+
+
+/* --------------------------------------------------------------------------
+   Increase Member Shares
+   -------------------------------------------------------------------------- */
+
+export async function increaseMemberShares(
+    memberId: string,
+    newShareCount: number
+): Promise<UpdateMemberSharesResult> {
+
+    const normalizedMemberId =
+        String(memberId ?? "").trim().toUpperCase();
+
+    const normalizedShareCount =
+        Number(newShareCount);
+
+    if (!normalizedMemberId) {
+        return {
+            success: false,
+            message: "সঠিক Member ID পাওয়া যায়নি।",
+        };
+    }
+
+    if (
+        !Number.isInteger(normalizedShareCount) ||
+        normalizedShareCount < 1 ||
+        normalizedShareCount > 15
+    ) {
+        return {
+            success: false,
+            message: "Share Count ১ থেকে ১৫ এর মধ্যে হতে হবে।",
+        };
+    }
+
+    try {
+        if (!currentAdminSessionToken) {
+            await restoreAdminSession();
+        }
+
+        if (!currentAdminSessionToken) {
+            return {
+                success: false,
+                message: "Admin session পাওয়া যায়নি। আবার login করুন।",
+            };
+        }
+
+        const response = await fetch(
+            `${API_URL}/api/admin/share-management/increase`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                    ...getAdminAuthHeaders(),
+                },
+                body: JSON.stringify({
+                    memberId: normalizedMemberId,
+                    newShareCount: normalizedShareCount,
+                }),
+            }
+        );
+
+        const contentType =
+            response.headers.get("content-type") || "";
+
+        if (!contentType.includes("application/json")) {
+            const responseText = await response.text();
+
+            console.error(
+                "Increase member shares non-JSON response:",
+                responseText
+            );
+
+            return {
+                success: false,
+                message: "Server থেকে সঠিক response পাওয়া যায়নি।",
+            };
+        }
+
+        const data = await response.json();
+
+        if (!response.ok || data?.success !== true) {
+            return {
+                success: false,
+                message:
+                    data?.message ||
+                    "Share বৃদ্ধি করা যায়নি।",
+            };
+        }
+
+        return {
+            success: true,
+            message:
+                data?.message ||
+                "Share সফলভাবে বৃদ্ধি করা হয়েছে।",
+            data: data?.data,
+        };
+
+    } catch (error) {
+        console.error(
+            "Increase member shares API error:",
+            error
+        );
+
+        return {
+            success: false,
+            message: "Server-এর সাথে সংযোগ করা যাচ্ছে না।",
+        };
+    }
+}
+
+
+/* --------------------------------------------------------------------------
+   Decrease Member Shares
+   -------------------------------------------------------------------------- */
+
+export async function decreaseMemberShares(
+    memberId: string,
+    newShareCount: number,
+    refundPaid: true
+): Promise<UpdateMemberSharesResult> {
+
+    const normalizedMemberId =
+        String(memberId ?? "").trim().toUpperCase();
+
+    const normalizedShareCount =
+        Number(newShareCount);
+
+    if (!normalizedMemberId) {
+        return {
+            success: false,
+            message: "সঠিক Member ID পাওয়া যায়নি।",
+        };
+    }
+
+    if (
+        !Number.isInteger(normalizedShareCount) ||
+        normalizedShareCount < 1 ||
+        normalizedShareCount > 15
+    ) {
+        return {
+            success: false,
+            message: "Share Count ১ থেকে ১৫ এর মধ্যে হতে হবে।",
+        };
+    }
+
+    if (refundPaid !== true) {
+        return {
+            success: false,
+            message: "Refund সম্পন্ন না করে Share Decrease করা যাবে না।",
+        };
+    }
+
+    try {
+        if (!currentAdminSessionToken) {
+            await restoreAdminSession();
+        }
+
+        if (!currentAdminSessionToken) {
+            return {
+                success: false,
+                message: "Admin session পাওয়া যায়নি। আবার login করুন।",
+            };
+        }
+
+        const response = await fetch(
+            `${API_URL}/api/admin/share-management/decrease`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                    ...getAdminAuthHeaders(),
+                },
+                body: JSON.stringify({
+                    memberId: normalizedMemberId,
+                    newShareCount: normalizedShareCount,
+                    refundPaid: true,
+                }),
+            }
+        );
+
+        const contentType =
+            response.headers.get("content-type") || "";
+
+        if (!contentType.includes("application/json")) {
+            const responseText = await response.text();
+
+            console.error(
+                "Decrease member shares non-JSON response:",
+                responseText
+            );
+
+            return {
+                success: false,
+                message: "Server থেকে সঠিক response পাওয়া যায়নি।",
+            };
+        }
+
+        const data = await response.json();
+
+        if (!response.ok || data?.success !== true) {
+            return {
+                success: false,
+                message:
+                    data?.message ||
+                    "Share কমানো যায়নি।",
+            };
+        }
+
+        return {
+            success: true,
+            message:
+                data?.message ||
+                "Share সফলভাবে কমানো হয়েছে।",
+            data: data?.data,
+        };
+
+    } catch (error) {
+        console.error(
+            "Decrease member shares API error:",
+            error
+        );
+
+        return {
+            success: false,
+            message: "Server-এর সাথে সংযোগ করা যাচ্ছে না।",
+        };
+    }
+}
+
+export interface ShareChangePreview {
+  changeType: "NONE" | "INCREASE" | "DECREASE";
+  currentShareCount: number;
+  newShareCount: number;
+  previousWeeklyAmount?: number;
+  newWeeklyAmount: number;
+  currentWeek: number;
+  effectiveWeek?: number;
+  expectedAmount?: number;
+  totalPaid?: number;
+  arrears?: number;
+  newShareRequirement?: number;
+  additionalRequirement?: number;
+  availableAdvance?: number;
+  advanceApplied?: number;
+  additionalDepositAmount?: number;
+  refundAmount?: number;
+  paidWeekCount?: number;
+  refundByWeek?: Record<string, number>;
+  untrackedPreviousRefund?: number;
+ 
+}
+
+export interface ShareChangePreviewResult {
+  success: boolean;
+  message: string;
+  data?: ShareChangePreview;
+}
+
+export async function previewMemberShareChange(
+  memberId: string,
+  newShareCount: number
+): Promise<ShareChangePreviewResult> {
+  try {
+    const normalizedMemberId = memberId.trim().toUpperCase();
+
+    if (!normalizedMemberId) {
+      return {
+        success: false,
+        message: "Member ID দিতে হবে",
+      };
+    }
+
+    if (
+      !Number.isInteger(newShareCount) ||
+      newShareCount < 1 ||
+      newShareCount > 15
+    ) {
+      return {
+        success: false,
+        message: "Share Count 1 থেকে 15 এর মধ্যে হতে হবে",
+      };
+    }
+
+    // Restore admin session if needed
+    await restoreAdminSession();
+
+    const token = getAdminSessionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        message: "Admin session পাওয়া যায়নি। আবার Login করুন।",
+      };
+    }
+
+    const response = await fetch(
+      `${API_URL}/api/admin/share-management/preview`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          memberId: normalizedMemberId,
+          newShareCount,
+        }),
+      }
+    );
+
+    const contentType = response.headers.get("content-type");
+
+    if (!contentType?.includes("application/json")) {
+      return {
+        success: false,
+        message: "Server থেকে সঠিক response পাওয়া যায়নি",
+      };
+    }
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      return {
+        success: false,
+        message: result.message || "Share Change Preview করা যায়নি",
+        data: result.data,
+      };
+    }
+
+    return {
+      success: true,
+      message: result.message || "Preview successful",
+      data: result.data,
+    };
+  } catch (error) {
+    console.error("Preview member share change error:", error);
+
+    return {
+      success: false,
+      message: "Network error. Preview করা যায়নি।",
+    };
+  }
+}
+
+
+/* --------------------------------------------------------------------------
+   Admin Share History Types
+   -------------------------------------------------------------------------- */
+
+export interface AdminShareHistoryItem {
+    historyId: string;
+    memberId: string;
+    previousShareCount: number;
+    newShareCount: number;
+    previousWeeklyAmount: number;
+    newWeeklyAmount: number;
+    changeWeek: number;
+    effectiveWeek: number;
+    additionalRequirement: number;
+    advanceApplied: number;
+    newDepositRequired: number;
+    adminId: string;
+    date: string;
+    withdrawalId: string;
+}
+
+export interface AdminWithdrawalHistoryItem {
+    withdrawalId: string;
+    memberId: string;
+    memberName: string;
+    refundAmount: number;
+    historyId: string;
+    week: number;
+    date: string;
+    adminId: string;
+    notes: string;
+}
+
+export interface AdminShareHistoryResult {
+    success: boolean;
+    message: string;
+    data?: {
+        memberId: string;
+        shareHistory: AdminShareHistoryItem[];
+        withdrawalHistory: AdminWithdrawalHistoryItem[];
+    };
+}
+
+
+/* --------------------------------------------------------------------------
+   Get Admin Share History
+   -------------------------------------------------------------------------- */
+
+export async function getAdminShareHistory(
+    memberId: string
+): Promise<AdminShareHistoryResult> {
+
+    const normalizedMemberId =
+        String(memberId ?? "").trim().toUpperCase();
+
+    if (!normalizedMemberId) {
+        return {
+            success: false,
+            message: "সঠিক Member ID পাওয়া যায়নি।",
+        };
+    }
+
+    try {
+        if (!currentAdminSessionToken) {
+            await restoreAdminSession();
+        }
+
+        if (!currentAdminSessionToken) {
+            return {
+                success: false,
+                message: "Admin session পাওয়া যায়নি। আবার login করুন।",
+            };
+        }
+
+        const response = await fetch(
+            `${API_URL}/api/admin/share-management/history/${encodeURIComponent(normalizedMemberId)}`,
+            {
+                method: "GET",
+                headers: {
+                    Accept: "application/json",
+                    ...getAdminAuthHeaders(),
+                },
+            }
+        );
+
+        const contentType =
+            response.headers.get("content-type") || "";
+
+        if (!contentType.includes("application/json")) {
+            const responseText = await response.text();
+
+            console.error(
+                "Admin share history non-JSON response:",
+                responseText
+            );
+
+            return {
+                success: false,
+                message: "Server থেকে সঠিক response পাওয়া যায়নি।",
+            };
+        }
+
+        const result = await response.json();
+
+        if (!response.ok || result?.success !== true) {
+            return {
+                success: false,
+                message:
+                    result?.message ||
+                    "Share History লোড করা যায়নি।",
+            };
+        }
+
+        return {
+            success: true,
+            message:
+                result?.message ||
+                "Share History পাওয়া গেছে।",
+            data: result?.data,
+        };
+
+    } catch (error) {
+        console.error(
+            "Get admin share history API error:",
+            error
+        );
+
+        return {
+            success: false,
+            message: "Server-এর সাথে সংযোগ করা যাচ্ছে না।",
+        };
+    }
+}

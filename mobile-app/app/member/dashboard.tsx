@@ -34,6 +34,7 @@ import {
     Member,
     clearCurrentMember,
     MemberDashboardSummary,
+    MemberOverallStats,
 } from '../../lib/member-api';
 
 import {
@@ -49,47 +50,26 @@ import {
 
 type ExtendedDashboardSummary =
     MemberDashboardSummary & {
-
         totalDeposit?: number;
-
         availableAdvance?: number;
-
         currentWeek?: number;
-
         currentWeekStartDate?: string;
-
         currentWeekEndDate?: string;
-
         nextWeek?: number;
-
         nextWeekStartDate?: string;
-
         nextWeekEndDate?: string;
-
         advanceAmount?: number;
-
         dueAmount?: number;
-
         dueWeeks?: number;
-
         dueFromWeek?: number;
-
         dueToWeek?: number;
-
         dueFromDate?: string;
-
         dueToDate?: string;
-
         advanceWeeks?: number;
-
         advanceFromWeek?: number;
-
         advanceToWeek?: number;
-
         advanceFromDate?: string;
-
         advanceToDate?: string;
-
         advanceUntilDate?: string;
     };
 
@@ -234,6 +214,12 @@ const translations = {
         amount:
             'টাকা',
 
+        overallStatistics: 'সমিতির সামগ্রিক পরিসংখ্যান',
+        totalDeposited: 'সর্বমোট জমার পরিমান',
+        totalDueOverall: 'সর্বমোট বকেয়া',
+        totalActiveMembers: 'মোট সদস্য সংখ্যা',
+        totalActiveShares: 'মোট শেয়ার সংখ্যা',
+
     },
 
     en: {
@@ -370,6 +356,12 @@ const translations = {
         amount:
             'Amount',
 
+        overallStatistics: 'Overall Cooperative Statistics',
+        totalDeposited: 'Total Deposited',
+        totalDueOverall: 'Total Due',
+        totalActiveMembers: 'Total Members',
+        totalActiveShares: 'Total Shares',
+
     },
 
 };
@@ -401,6 +393,9 @@ export default function MemberDashboard() {
     ] = useState<ExtendedDashboardSummary | null>(
         null
     );
+
+    const [overallStats, setOverallStats] =
+    useState<MemberOverallStats | null>(null);
 
 
     /* ----------------------------------------------------------------------
@@ -631,6 +626,10 @@ export default function MemberDashboard() {
                     setSummary(
                         dashboardSummary as ExtendedDashboardSummary
                     );
+
+                    setOverallStats(
+    dashboardResult.overallStats ?? null
+);
 
                 } catch (error) {
 
@@ -1191,10 +1190,9 @@ export default function MemberDashboard() {
      * তাই backend-এর dashboardAdvanceAmount / advanceAmount ব্যবহার
      * করতে হবে।
      */
-    const advanceAmount =
-        Number(
-            summary.advanceAmount ?? 0
-        );
+    const advanceAmount = Number(
+        summary.currentAdvance ?? 0
+    );
 
 
     /*
@@ -1618,6 +1616,81 @@ export default function MemberDashboard() {
                     </View>
 
 
+                    {/* =========================================================
+                        OVERALL COOPERATIVE STATISTICS
+                        ========================================================= */}
+
+                    {overallStats && (
+                        <View style={styles.overallStatsCard}>
+
+                            <View style={styles.overallStatsHeader}>
+
+                                <View style={styles.overallStatsIcon}>
+                                    <Ionicons
+                                        name="stats-chart-outline"
+                                        size={16}
+                                        color="#334155"
+                                    />
+                                </View>
+
+                                <Text style={styles.sectionTitle}>
+                                    {t.overallStatistics}
+                                </Text>
+
+                            </View>
+
+                            <View style={styles.overallStatsGrid}>
+
+                                <View style={styles.overallStatItem}>
+                                    <Text style={styles.overallStatLabel}>
+                                        {t.totalDeposited}
+                                    </Text>
+
+                                    <Text style={styles.overallStatValue}>
+                                        {formatMoney(overallStats.totalDeposited)}
+                                    </Text>
+                                </View>
+
+                                <View style={styles.overallStatItem}>
+                                    <Text style={styles.overallStatLabel}>
+                                        {t.totalDueOverall}
+                                    </Text>
+
+                                    <Text
+                                        style={[
+                                            styles.overallStatValue,
+                                            styles.overallDueValue,
+                                        ]}
+                                    >
+                                        {formatMoney(overallStats.totalDue)}
+                                    </Text>
+                                </View>
+
+                                <View style={styles.overallStatItem}>
+                                    <Text style={styles.overallStatLabel}>
+                                        {t.totalActiveMembers}
+                                    </Text>
+
+                                    <Text style={styles.overallStatValue}>
+                                        {overallStats.totalMembers.toLocaleString('en-BD')}
+                                    </Text>
+                                </View>
+
+                                <View style={styles.overallStatItem}>
+                                    <Text style={styles.overallStatLabel}>
+                                        {t.totalActiveShares}
+                                    </Text>
+
+                                    <Text style={styles.overallStatValue}>
+                                        {overallStats.totalShares.toLocaleString('en-BD')}
+                                    </Text>
+                                </View>
+
+                            </View>
+
+                        </View>
+                    )}
+
                     {/* ==========================================================
                         WEEK STATUS
                         ========================================================== */}
@@ -1726,9 +1799,6 @@ export default function MemberDashboard() {
                         </View>
 
                     </View>
-
-
-
 
 
                     <View
@@ -2504,7 +2574,7 @@ function formatAdvanceWeeks(
     weeklyAmount: number
 ) {
     const advanceAmount = Number(
-        summary.advanceAmount || 0
+        summary.currentAdvance ?? 0
     );
 
     if (advanceAmount > 0) {
@@ -2742,21 +2812,21 @@ const styles = StyleSheet.create({
        ========================================================================= */
 
     totalDepositCard: {
-        borderRadius: 15,
-        paddingHorizontal: 16,
-        paddingTop: 14,
-        paddingBottom: 12,
+        borderRadius: 18,
+        paddingHorizontal: 18,
+        paddingTop: 20,
+        paddingBottom: 17,
         backgroundColor: '#0f172a',
 
         shadowColor: '#000000',
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
+        shadowOpacity: 0.10,
+        shadowRadius: 10,
         shadowOffset: {
             width: 0,
-            height: 3,
+            height: 4,
         },
 
-        elevation: 3,
+        elevation: 4,
     },
 
     totalDepositTop: {
@@ -2772,24 +2842,24 @@ const styles = StyleSheet.create({
     },
 
     totalDepositIcon: {
-        width: 38,
-        height: 38,
-        borderRadius: 10,
+        width: 46,
+        height: 46,
+        borderRadius: 13,
         backgroundColor: '#1e293b',
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 10,
+        marginRight: 12,
     },
 
     totalDepositLabel: {
-        fontSize: 12,
+        fontSize: 14,
         fontWeight: '800',
         color: '#f8fafc',
     },
 
     totalDepositDescription: {
-        marginTop: 2,
-        fontSize: 9,
+        marginTop: 4,
+        fontSize: 10,
         color: '#94a3b8',
     },
 
@@ -2798,14 +2868,14 @@ const styles = StyleSheet.create({
     },
 
     totalDepositAmount: {
-        fontSize: 23,
+        fontSize: 27,
         fontWeight: '900',
         color: '#ffffff',
     },
 
     totalDepositFooter: {
-        marginTop: 11,
-        paddingTop: 9,
+        marginTop: 16,
+        paddingTop: 13,
         borderTopWidth: 1,
         borderTopColor: '#334155',
         flexDirection: 'row',
@@ -2818,20 +2888,20 @@ const styles = StyleSheet.create({
 
     totalDepositFooterDivider: {
         width: 1,
-        height: 25,
+        height: 32,
         backgroundColor: '#334155',
-        marginHorizontal: 12,
+        marginHorizontal: 14,
     },
 
     totalDepositFooterLabel: {
-        fontSize: 9,
+        fontSize: 10,
         fontWeight: '700',
         color: '#94a3b8',
     },
 
     totalDepositFooterValue: {
-        marginTop: 2,
-        fontSize: 11,
+        marginTop: 4,
+        fontSize: 13,
         fontWeight: '800',
         color: '#e2e8f0',
     },
@@ -2843,8 +2913,8 @@ const styles = StyleSheet.create({
 
     twoColumn: {
         flexDirection: 'row',
-        gap: 10,
-        marginTop: 10,
+        gap: 12,
+        marginTop: 12,
     },
 
 
@@ -2854,9 +2924,9 @@ const styles = StyleSheet.create({
 
     compactStatCard: {
         flex: 1,
-        minHeight: 118,
-        borderRadius: 14,
-        padding: 13,
+        minHeight: 135,
+        borderRadius: 16,
+        padding: 15,
         backgroundColor: '#ffffff',
         borderWidth: 1,
         borderColor: '#e2e8f0',
@@ -2878,13 +2948,13 @@ const styles = StyleSheet.create({
     },
 
     compactStatIcon: {
-        width: 32,
-        height: 32,
-        borderRadius: 9,
+        width: 36,
+        height: 36,
+        borderRadius: 10,
         backgroundColor: '#f1f5f9',
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 8,
+        marginRight: 9,
     },
 
     dueIcon: {
@@ -2897,14 +2967,14 @@ const styles = StyleSheet.create({
 
     compactStatLabel: {
         flex: 1,
-        fontSize: 10,
+        fontSize: 11,
         fontWeight: '800',
         color: '#475569',
     },
 
     compactStatAmount: {
-        marginTop: 10,
-        fontSize: 19,
+        marginTop: 13,
+        fontSize: 22,
         fontWeight: '900',
         color: '#0f172a',
     },
@@ -2918,9 +2988,9 @@ const styles = StyleSheet.create({
     },
 
     compactStatDetail: {
-        marginTop: 4,
-        fontSize: 8.5,
-        lineHeight: 13,
+        marginTop: 6,
+        fontSize: 9,
+        lineHeight: 15,
         fontWeight: '700',
         color: '#b91c1c',
     },
@@ -2936,9 +3006,9 @@ const styles = StyleSheet.create({
 
     infoCard: {
         flex: 1,
-        minHeight: 82,
-        padding: 12,
-        borderRadius: 14,
+        minHeight: 95,
+        padding: 14,
+        borderRadius: 16,
         backgroundColor: '#ffffff',
         borderWidth: 1,
         borderColor: '#e2e8f0',
@@ -2947,13 +3017,13 @@ const styles = StyleSheet.create({
     },
 
     infoCardIcon: {
-        width: 36,
-        height: 36,
-        borderRadius: 10,
+        width: 40,
+        height: 40,
+        borderRadius: 11,
         backgroundColor: '#f1f5f9',
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 10,
+        marginRight: 11,
     },
 
     infoCardContent: {
@@ -2961,14 +3031,14 @@ const styles = StyleSheet.create({
     },
 
     infoCardLabel: {
-        fontSize: 9.5,
+        fontSize: 10.5,
         fontWeight: '700',
         color: '#64748b',
     },
 
     infoCardValue: {
-        marginTop: 3,
-        fontSize: 22,
+        marginTop: 5,
+        fontSize: 24,
         fontWeight: '900',
         color: '#0f172a',
     },
@@ -2979,11 +3049,11 @@ const styles = StyleSheet.create({
        ========================================================================= */
 
     lastDepositCard: {
-        marginTop: 10,
-        minHeight: 68,
-        paddingHorizontal: 13,
-        paddingVertical: 10,
-        borderRadius: 14,
+        marginTop: 12,
+        minHeight: 78,
+        paddingHorizontal: 15,
+        paddingVertical: 13,
+        borderRadius: 16,
         backgroundColor: '#ffffff',
         borderWidth: 1,
         borderColor: '#e2e8f0',
@@ -2999,13 +3069,13 @@ const styles = StyleSheet.create({
     },
 
     lastDepositIcon: {
-        width: 36,
-        height: 36,
-        borderRadius: 10,
+        width: 40,
+        height: 40,
+        borderRadius: 11,
         backgroundColor: '#f0fdf4',
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 10,
+        marginRight: 11,
     },
 
     lastDepositTextContainer: {
@@ -3013,14 +3083,14 @@ const styles = StyleSheet.create({
     },
 
     lastDepositTitle: {
-        fontSize: 10.5,
+        fontSize: 12,
         fontWeight: '800',
         color: '#334155',
     },
 
     lastDepositDescription: {
-        marginTop: 2,
-        fontSize: 8,
+        marginTop: 3,
+        fontSize: 9,
         color: '#94a3b8',
     },
 
@@ -3029,14 +3099,14 @@ const styles = StyleSheet.create({
     },
 
     lastDepositWeekValue: {
-        fontSize: 11,
+        fontSize: 13,
         fontWeight: '900',
         color: '#0f172a',
     },
 
     lastDepositDate: {
-        marginTop: 2,
-        fontSize: 9,
+        marginTop: 3,
+        fontSize: 10,
         fontWeight: '600',
         color: '#64748b',
     },
@@ -3047,9 +3117,9 @@ const styles = StyleSheet.create({
        ========================================================================= */
 
     weekProgressCard: {
-        marginTop: 10,
-        padding: 13,
-        borderRadius: 14,
+        marginTop: 12,
+        padding: 15,
+        borderRadius: 16,
         backgroundColor: '#ffffff',
         borderWidth: 1,
         borderColor: '#e2e8f0',
@@ -3058,7 +3128,7 @@ const styles = StyleSheet.create({
     weekStatusHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 10,
+        marginBottom: 13,
     },
 
     weekStatusTitleArea: {
@@ -3077,7 +3147,7 @@ const styles = StyleSheet.create({
     },
 
     sectionTitle: {
-        fontSize: 11,
+        fontSize: 12,
         fontWeight: '800',
         color: '#0f172a',
     },
@@ -3089,9 +3159,9 @@ const styles = StyleSheet.create({
 
     currentWeekBox: {
         flex: 1,
-        paddingHorizontal: 11,
-        paddingVertical: 10,
-        borderRadius: 11,
+        paddingHorizontal: 12,
+        paddingVertical: 12,
+        borderRadius: 12,
         backgroundColor: '#f8fafc',
         borderWidth: 1,
         borderColor: '#e2e8f0',
@@ -3099,9 +3169,9 @@ const styles = StyleSheet.create({
 
     nextWeekBox: {
         flex: 1,
-        paddingHorizontal: 11,
-        paddingVertical: 10,
-        borderRadius: 11,
+        paddingHorizontal: 12,
+        paddingVertical: 12,
+        borderRadius: 12,
         backgroundColor: '#fff7f7',
         borderWidth: 1,
         borderColor: '#fecaca',
@@ -3133,14 +3203,14 @@ const styles = StyleSheet.create({
     },
 
     currentWeekNumber: {
-        fontSize: 13,
+        fontSize: 15,
         fontWeight: '900',
         color: '#0f172a',
     },
 
     currentWeekDate: {
-        marginTop: 2,
-        fontSize: 8.5,
+        marginTop: 4,
+        fontSize: 9,
         color: '#64748b',
     },
 
@@ -3151,14 +3221,14 @@ const styles = StyleSheet.create({
     },
 
     nextWeekNumber: {
-        fontSize: 13,
+        fontSize: 15,
         fontWeight: '900',
         color: '#dc2626',
     },
 
     nextWeekDate: {
-        marginTop: 2,
-        fontSize: 8.5,
+        marginTop: 4,
+        fontSize: 9,
         color: '#ef4444',
     },
 
@@ -3434,4 +3504,70 @@ const styles = StyleSheet.create({
         color: '#dc2626',
     },
 
+
+    /* =========================================================================
+   OVERALL COOPERATIVE STATISTICS
+   ========================================================================= */
+
+    overallStatsCard: {
+        marginTop: 12,
+        padding: 15,
+        borderRadius: 16,
+        backgroundColor: '#ffffff',
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+    },
+
+    overallStatsHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 13,
+    },
+
+    overallStatsIcon: {
+        width: 28,
+        height: 28,
+        borderRadius: 8,
+        backgroundColor: '#f1f5f9',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 8,
+    },
+
+    overallStatsGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 10,
+    },
+
+    overallStatItem: {
+        width: '48%',
+        flexGrow: 1,
+        minHeight: 85,
+        padding: 12,
+        borderRadius: 12,
+        backgroundColor: '#f8fafc',
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        justifyContent: 'center',
+    },
+
+    overallStatLabel: {
+        fontSize: 10,
+        fontWeight: '700',
+        color: '#64748b',
+    },
+
+    overallStatValue: {
+        marginTop: 7,
+        fontSize: 19,
+        fontWeight: '900',
+        color: '#0f172a',
+    },
+
+    overallDueValue: {
+        color: '#dc2626',
+    },
+
 });
+

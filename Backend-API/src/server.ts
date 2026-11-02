@@ -22,14 +22,17 @@ import adminProfileRoutes
 import adminEmailVerificationRoutes
   from "./routes/admin-email-verification.routes";
 
-import adminMemberRoutes 
+import adminMemberRoutes
   from "./routes/admin-member.routes";
 
 import adminEmailChangeRoutes
   from "./routes/admin-email-change.routes";
 
-import adminPendingDepositRoutes 
+import adminPendingDepositRoutes
   from "./routes/admin-pending-deposit.routes";
+
+import adminShareRoutes
+  from "./routes/admin-share.routes";
 
 
 const app = express();
@@ -169,8 +172,8 @@ app.use(
 
 
 app.use(
-    "/api/admin/pending-deposits",
-    adminPendingDepositRoutes
+  "/api/admin/pending-deposits",
+  adminPendingDepositRoutes
 );
 
 /* -------------------------------------------------------------------------- */
@@ -180,6 +183,15 @@ app.use(
 app.use(
   "/api/admin/members",
   adminMemberRoutes
+);
+
+/* -------------------------------------------------------------------------- */
+/* Admin Share Management                                                     */
+/* -------------------------------------------------------------------------- */
+
+app.use(
+  "/api/admin/share-management",
+  adminShareRoutes
 );
 
 /* -------------------------------------------------------------------------- */

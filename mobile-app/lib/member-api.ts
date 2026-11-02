@@ -45,6 +45,14 @@ export type MemberDashboardSummary = {
     currentWeekAdvanceAdded: number;
 };
 
+export type MemberOverallStats = {
+    totalDeposited: number;
+    totalDue: number;
+    totalMembers: number;
+    totalShares: number;
+    totalWeeks: number;
+};
+
 /*
 |--------------------------------------------------------------------------
 | Dashboard Result
@@ -56,6 +64,7 @@ export type MemberDashboardResult = {
     message: string;
     member?: Member;
     summary?: MemberDashboardSummary;
+    overallStats?: MemberOverallStats;
 };
 
 /*
@@ -1384,6 +1393,8 @@ export async function resendMemberRegistrationOTP(
 |--------------------------------------------------------------------------
 */
 
+console.log('GET MEMBER DASHBOARD CALLED');
+
 export async function getMemberDashboard(
     memberId: string
 ): Promise<MemberDashboardResult> {
@@ -1464,7 +1475,12 @@ export async function getMemberDashboard(
 
             summary:
                 data?.summary,
+
+            overallStats:
+                data?.overallStats,
         };
+
+
     } catch (error) {
         console.error(
             'Member dashboard API error:',
@@ -1827,6 +1843,39 @@ export type MemberDepositHistoryResult = {
     requests: MemberPendingDeposit[];
 };
 
+export interface MemberShareHistoryItem {
+    historyId: string;
+    previousShareCount: number;
+    newShareCount: number;
+    previousWeeklyAmount: number;
+    newWeeklyAmount: number;
+    changeWeek: number;
+    effectiveWeek: number;
+    additionalRequirement: number;
+    advanceApplied: number;
+    newDepositRequired: number;
+    adminId: string;
+    date: string;
+    withdrawalId: string;
+}
+
+export interface MemberWithdrawalHistoryItem {
+    withdrawalId: string;
+    refundAmount: number;
+    historyId: string;
+    week: number;
+    date: string;
+    adminId: string;
+    notes: string;
+}
+
+export interface MemberShareHistoryResult {
+    success: boolean;
+    message?: string;
+    shareHistory: MemberShareHistoryItem[];
+    withdrawalHistory: MemberWithdrawalHistoryItem[];
+}
+
 /*
 |--------------------------------------------------------------------------
 | Get Member Deposit History
@@ -1939,6 +1988,22 @@ export async function getMemberDepositHistory(
             requests: [],
         };
     }
+}
+
+export async function getMemberShareHistory(
+    memberId: string
+): Promise<MemberShareHistoryResult> {
+    const response = await fetch(
+        `${API_URL}/api/mobile/auth/share-history/${encodeURIComponent(memberId)}`
+    );
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to load share history");
+    }
+
+    return data as MemberShareHistoryResult;
 }
 
 /*

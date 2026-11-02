@@ -17,6 +17,7 @@ import {
   verifyMemberPinResetOTP,
   resendMemberPinResetOTP,
   resetMemberPin,
+  getMemberShareHistory,
 } from "../services/member.service";
 
 import {
@@ -295,7 +296,7 @@ router.post(
           phone:
             member.phone,
 
-          email: 
+          email:
             member.email,
 
           joinDate:
@@ -781,15 +782,10 @@ router.get(
 
       return res.json({
         success: true,
-
-        message:
-          "Dashboard loaded successfully",
-
-        member:
-          dashboard.member,
-
-        summary:
-          dashboard.summary,
+        message: "Dashboard loaded successfully",
+        member: dashboard.member,
+        summary: dashboard.summary,
+        overallStats: dashboard.overallStats,
       });
     } catch (error) {
       console.error(
@@ -1197,6 +1193,48 @@ router.get(
           "Deposit history information load করা যায়নি",
 
         requests: [],
+      });
+    }
+  }
+);
+
+/*
+|--------------------------------------------------------------------------
+| Get Member Share History
+|--------------------------------------------------------------------------
+*/
+
+router.get(
+  "/share-history/:memberId",
+  async (req, res) => {
+    try {
+      const memberId = String(
+        req.params.memberId ?? ""
+      ).trim();
+
+      const result = await getMemberShareHistory(
+        memberId
+      );
+
+      if (!result.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid member ID",
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: "Share history retrieved successfully",
+        shareHistory: result.shareHistory,
+        withdrawalHistory: result.withdrawalHistory,
+      });
+    } catch (error) {
+      console.error("Get member share history error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Failed to retrieve share history",
       });
     }
   }

@@ -33,8 +33,11 @@ import {
     clearCurrentMember,
     getCurrentMember,
     getMemberDepositHistory,
+    getMemberShareHistory,
     MemberDepositHistoryResult,
     MemberPendingDeposit,
+    MemberShareHistoryItem,
+    MemberWithdrawalHistoryItem,
 } from '../../lib/member-api';
 
 import {
@@ -980,6 +983,227 @@ function MenuItem({
 
 /*
 |--------------------------------------------------------------------------
+| Share History Card
+|--------------------------------------------------------------------------
+*/
+
+function ShareHistoryCard({
+    item,
+    withdrawal,
+    language,
+}: {
+    item: MemberShareHistoryItem;
+    withdrawal?: MemberWithdrawalHistoryItem;
+    language: MemberLanguage;
+}) {
+    const isIncrease =
+        item.newShareCount > item.previousShareCount;
+
+    const isDecrease =
+        item.newShareCount < item.previousShareCount;
+
+    const title = isIncrease
+        ? language === 'bn'
+            ? 'শেয়ার বৃদ্ধি'
+            : 'Share Increase'
+        : language === 'bn'
+            ? 'শেয়ার হ্রাস'
+            : 'Share Decrease';
+
+    return (
+        <View style={styles.requestCard}>
+            {/* Header */}
+            <View style={styles.cardHeader}>
+                <View style={styles.requestTitleArea}>
+                    <View style={styles.requestIcon}>
+                        <Ionicons
+                            name={
+                                isIncrease
+                                    ? 'trending-up'
+                                    : 'trending-down'
+                            }
+                            size={20}
+                            color={isIncrease ? '#16a34a' : '#dc2626'}
+                        />
+                    </View>
+
+                    <View style={styles.requestTitleText}>
+                        <Text style={styles.requestTitle}>
+                            {title}
+                        </Text>
+
+                        <Text style={styles.requestId}>
+                            {item.historyId || '-'}
+                        </Text>
+                    </View>
+                </View>
+            </View>
+
+            <View style={styles.divider} />
+
+            {/* Share Information */}
+            <View style={styles.detailsGrid}>
+                <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>
+                        {language === 'bn' ? 'আগের শেয়ার' : 'Previous Shares'}
+                    </Text>
+
+                    <Text style={styles.detailValue}>
+                        {item.previousShareCount}
+                    </Text>
+                </View>
+
+                <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>
+                        {language === 'bn' ? 'নতুন শেয়ার' : 'New Shares'}
+                    </Text>
+
+                    <Text style={styles.detailValue}>
+                        {item.newShareCount}
+                    </Text>
+                </View>
+
+                <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>
+                        {language === 'bn' ? 'আগের সাপ্তাহিক জমা' : 'Previous Weekly Amount'}
+                    </Text>
+
+                    <Text style={styles.detailValue}>
+                        {formatMoney(item.previousWeeklyAmount)}
+                    </Text>
+                </View>
+
+                <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>
+                        {language === 'bn' ? 'নতুন সাপ্তাহিক জমা' : 'New Weekly Amount'}
+                    </Text>
+
+                    <Text style={styles.detailValue}>
+                        {formatMoney(item.newWeeklyAmount)}
+                    </Text>
+                </View>
+
+                <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>
+                        {language === 'bn' ? 'পরিবর্তনের সপ্তাহ' : 'Change Week'}
+                    </Text>
+
+                    <Text style={styles.detailValue}>
+                        {item.changeWeek}
+                    </Text>
+                </View>
+
+                <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>
+                        {language === 'bn' ? 'কার্যকর সপ্তাহ' : 'Effective Week'}
+                    </Text>
+
+                    <Text style={styles.detailValue}>
+                        {item.effectiveWeek}
+                    </Text>
+                </View>
+            </View>
+
+            {/* Increase Information */}
+            {isIncrease ? (
+                <>
+                    <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>
+                            {language === 'bn'
+                                ? 'অতিরিক্ত জমার প্রয়োজন'
+                                : 'Additional Requirement'}
+                        </Text>
+
+                        <Text style={styles.infoValue}>
+                            {formatMoney(item.additionalRequirement)}
+                        </Text>
+                    </View>
+
+                    <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>
+                            {language === 'bn'
+                                ? 'অগ্রিম থেকে সমন্বয়'
+                                : 'Advance Applied'}
+                        </Text>
+
+                        <Text style={styles.infoValue}>
+                            {formatMoney(item.advanceApplied)}
+                        </Text>
+                    </View>
+
+                    <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>
+                            {language === 'bn'
+                                ? 'নতুন জমার প্রয়োজন'
+                                : 'New Deposit Required'}
+                        </Text>
+
+                        <Text style={styles.infoValue}>
+                            {formatMoney(item.newDepositRequired)}
+                        </Text>
+                    </View>
+                </>
+            ) : null}
+
+            {/* Decrease / Refund Information */}
+            {isDecrease && withdrawal ? (
+                <View style={styles.infoRow}>
+                    <Ionicons
+                        name="cash-outline"
+                        size={17}
+                        color="#16a34a"
+                    />
+
+                    <Text style={styles.infoLabel}>
+                        {language === 'bn'
+                            ? 'ফেরত দেওয়া টাকা'
+                            : 'Refund Amount'}
+                    </Text>
+
+                    <Text style={[
+                        styles.infoValue,
+                        { color: '#16a34a' },
+                    ]}>
+                        {formatMoney(withdrawal.refundAmount)}
+                    </Text>
+                </View>
+            ) : null}
+
+            {/* Date */}
+            <View style={styles.infoRow}>
+                <Ionicons
+                    name="calendar-outline"
+                    size={17}
+                    color="#64748b"
+                />
+
+                <Text style={styles.infoLabel}>
+                    {language === 'bn' ? 'পরিবর্তনের তারিখ' : 'Change Date'}
+                </Text>
+
+                <Text style={styles.infoValue}>
+                    {formatDateTime(item.date, language)}
+                </Text>
+            </View>
+
+            {/* Withdrawal Notes */}
+            {isDecrease && withdrawal?.notes ? (
+                <View style={styles.notesBox}>
+                    <Text style={styles.notesLabel}>
+                        {language === 'bn' ? 'ফেরতের বিবরণ' : 'Refund Details'}
+                    </Text>
+
+                    <Text style={styles.notesText}>
+                        {withdrawal.notes}
+                    </Text>
+                </View>
+            ) : null}
+        </View>
+    );
+}
+
+/*
+|--------------------------------------------------------------------------
 | Menu Divider
 |--------------------------------------------------------------------------
 */
@@ -1024,6 +1248,16 @@ export default function DepositHistoryScreen() {
     ] = useState<
         MemberPendingDeposit[]
     >([]);
+
+    const [
+        shareHistory,
+        setShareHistory,
+    ] = useState<MemberShareHistoryItem[]>([]);
+
+    const [
+        withdrawalHistory,
+        setWithdrawalHistory,
+    ] = useState<MemberWithdrawalHistoryItem[]>([]);
 
     const [
         loading,
@@ -1073,180 +1307,130 @@ export default function DepositHistoryScreen() {
     const t =
         language === 'bn'
             ? {
-                appName:
-                    'ক্ষুদ্র সঞ্চয়',
+                appName: 'ক্ষুদ্র সঞ্চয়',
 
-                appSubtitle:
-                    'সমবায় সমিতি',
+                appSubtitle: 'সমবায় সমিতি',
 
-                memberPanel:
-                    'সদস্য প্যানেল',
+                memberPanel: 'সদস্য প্যানেল',
 
-                dashboard:
-                    'ড্যাশবোর্ড',
+                dashboard: 'ড্যাশবোর্ড',
 
-                profile:
-                    'প্রোফাইল',
+                profile: 'প্রোফাইল',
 
-                changeGmail:
-                    'জি-মেইল পরিবর্তন',
+                changeGmail: 'জি-মেইল পরিবর্তন',
 
-                changePin:
-                    'পিন পরিবর্তন',
+                changePin: 'পিন পরিবর্তন',
 
-                weeklyDeposit:
-                    'সাপ্তাহিক জমা',
+                weeklyDeposit: 'সাপ্তাহিক জমা',
 
-                pendingDeposit:
-                    'অপেক্ষমাণ জমা',
+                pendingDeposit: 'অপেক্ষমাণ জমা',
 
-                weeklyHistory:
-                    'সাপ্তাহিক জমার ইতিহাস',
+                weeklyHistory: 'সাপ্তাহিক জমার ইতিহাস',
 
-                language:
-                    'ভাষা নির্বাচন করুন',
+                language: 'ভাষা নির্বাচন করুন',
 
-                bangla:
-                    'বাংলা',
+                bangla: 'বাংলা',
 
-                english:
-                    'EN',
+                english: 'EN',
 
-                logout:
-                    'লগআউট',
+                logout: 'লগআউট',
 
-                memberId:
-                    'সদস্য ID',
+                memberId: 'সদস্য ID',
 
-                title:
-                    'সাপ্তাহিক জমার ইতিহাস',
+                title: 'সাপ্তাহিক জমার ইতিহাস',
 
-                summaryTitle:
-                    'জমার আবেদন',
+                summaryTitle: 'জমার আবেদন',
 
-                summarySubtitle:
-                    'মোট আবেদন',
+                summarySubtitle: 'মোট আবেদন',
 
-                pending:
-                    'অপেক্ষমাণ',
+                pending: 'অপেক্ষমাণ',
 
-                approved:
-                    'অনুমোদিত',
+                approved: 'অনুমোদিত',
 
-                rejected:
-                    'বাতিল',
+                rejected: 'বাতিল',
 
-                loading:
-                    'ইতিহাস লোড হচ্ছে...',
+                loading: 'ইতিহাস লোড হচ্ছে...',
 
-                error:
-                    'Deposit history load করা যায়নি',
+                error: 'Deposit history load করা যায়নি',
 
-                emptyTitle:
-                    'কোনো জমার ইতিহাস নেই',
+                emptyTitle: 'কোনো জমার ইতিহাস নেই',
 
-                emptyText:
-                    'আপনি যখন কোনো জমার আবেদন করবেন, সেটি এখানে দেখা যাবে।',
+                emptyText: 'আপনি যখন কোনো জমার আবেদন করবেন, সেটি এখানে দেখা যাবে।',
 
-                logoutTitle:
-                    'লগআউট',
+                logoutTitle: 'লগআউট',
 
-                logoutMessage:
-                    'আপনি কি লগআউট করতে চান?',
+                logoutMessage: 'আপনি কি লগআউট করতে চান?',
 
-                cancel:
-                    'বাতিল',
+                cancel: 'বাতিল',
 
-                logoutConfirm:
-                    'লগআউট',
+                logoutConfirm: 'লগআউট',
+
+                shareHistoryTitle: 'শেয়ার পরিবর্তনের ইতিহাস',
+
+                shareHistoryEmpty: 'কোনো শেয়ার পরিবর্তনের ইতিহাস নেই',
             }
             : {
-                appName:
-                    'ক্ষুদ্র সঞ্চয়',
+                appName: 'ক্ষুদ্র সঞ্চয়',
 
-                appSubtitle:
-                    'সমবায় সমিতি',
+                appSubtitle: 'সমবায় সমিতি',
 
-                memberPanel:
-                    'Member Panel',
+                memberPanel: 'Member Panel',
 
-                dashboard:
-                    'Dashboard',
+                dashboard: 'Dashboard',
 
-                profile:
-                    'Profile',
+                profile: 'Profile',
 
-                changeGmail:
-                    'Change Gmail',
+                changeGmail: 'Change Gmail',
 
-                changePin:
-                    'Change PIN',
+                changePin: 'Change PIN',
 
-                weeklyDeposit:
-                    'Weekly Deposit',
+                weeklyDeposit: 'Weekly Deposit',
 
-                pendingDeposit:
-                    'Pending Deposit',
+                pendingDeposit: 'Pending Deposit',
 
-                weeklyHistory:
-                    'Weekly Deposit History',
+                weeklyHistory: 'Weekly Deposit History',
 
-                language:
-                    'Select Language',
+                language: 'Select Language',
 
-                bangla:
-                    'বাংলা',
+                bangla: 'বাংলা',
 
-                english:
-                    'EN',
+                english: 'EN',
 
-                logout:
-                    'Logout',
+                logout: 'Logout',
 
-                memberId:
-                    'Member ID',
+                memberId: 'Member ID',
 
-                title:
-                    'Weekly Deposit History',
+                title: 'Weekly Deposit History',
 
-                summaryTitle:
-                    'Deposit Requests',
+                summaryTitle: 'Deposit Requests',
 
-                summarySubtitle:
-                    'Total requests',
+                summarySubtitle: 'Total requests',
 
-                pending:
-                    'Pending',
+                pending: 'Pending',
 
-                approved:
-                    'Approved',
+                approved: 'Approved',
 
-                rejected:
-                    'Rejected',
+                rejected: 'Rejected',
 
-                loading:
-                    'Loading history...',
+                loading: 'Loading history...',
 
-                error:
-                    'Deposit history could not be loaded',
+                error: 'Deposit history could not be loaded',
 
-                emptyTitle:
-                    'No deposit history',
+                emptyTitle: 'No deposit history',
 
-                emptyText:
-                    'Your deposit requests will appear here when you make a deposit request.',
+                emptyText: 'Your deposit requests will appear here when you make a deposit request.',
 
-                logoutTitle:
-                    'Logout',
+                logoutTitle: 'Logout',
 
-                logoutMessage:
-                    'Are you sure you want to logout?',
+                logoutMessage: 'Are you sure you want to logout?',
 
-                cancel:
-                    'Cancel',
+                cancel: 'Cancel',
 
-                logoutConfirm:
-                    'Logout',
+                logoutConfirm: 'Logout',
+
+                shareHistoryTitle: 'Share Change History',
+
+                shareHistoryEmpty: 'No share change history',
             };
 
     /*
@@ -1548,6 +1732,34 @@ export default function DepositHistoryScreen() {
                             ? historyResult.requests
                             : []
                     );
+
+                    // Load Share History
+                    try {
+                        const shareResult =
+                            await getMemberShareHistory(
+                                member.memberId
+                            );
+
+                        setShareHistory(
+                            Array.isArray(shareResult.shareHistory)
+                                ? shareResult.shareHistory
+                                : []
+                        );
+
+                        setWithdrawalHistory(
+                            Array.isArray(shareResult.withdrawalHistory)
+                                ? shareResult.withdrawalHistory
+                                : []
+                        );
+                    } catch (shareError) {
+                        console.error(
+                            'Share history load error:',
+                            shareError
+                        );
+
+                        setShareHistory([]);
+                        setWithdrawalHistory([]);
+                    }
                 } catch (
                 error
                 ) {
@@ -2015,8 +2227,7 @@ export default function DepositHistoryScreen() {
                 {/* Empty */}
                 {!loading &&
                     !errorMessage &&
-                    requests.length ===
-                    0 ? (
+                    requests.length === 0 && shareHistory.length === 0 ? (
                     <View
                         style={
                             styles.emptyCard
@@ -2082,6 +2293,62 @@ export default function DepositHistoryScreen() {
                                 />
                             )
                         )}
+                    </View>
+                ) : null}
+
+                {/* Share History Section */}
+                {!loading &&
+                    !errorMessage &&
+                    shareHistory.length > 0 ? (
+                    <View style={styles.shareHistorySection}>
+                        <View style={styles.shareHistoryHeader}>
+                            <Ionicons
+                                name="swap-horizontal-outline"
+                                size={21}
+                                color="#2563eb"
+                            />
+
+                            <Text
+                                style={[
+                                    styles.summaryTitle,
+                                    { marginLeft: 9 },
+                                ]}
+                            >
+                                {t.shareHistoryTitle}
+                            </Text>
+
+                            <View style={styles.totalCount}>
+                                <Text style={styles.totalCountText}>
+                                    {shareHistory.length}
+                                </Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.historyList}>
+                            {shareHistory.map((item, index) => {
+                                const withdrawal =
+                                    withdrawalHistory.find(
+                                        (entry) =>
+                                            (
+                                                item.historyId &&
+                                                entry.historyId === item.historyId
+                                            ) ||
+                                            (
+                                                item.withdrawalId &&
+                                                entry.withdrawalId === item.withdrawalId
+                                            )
+                                    );
+
+                                return (
+                                    <ShareHistoryCard
+                                        key={item.historyId || index.toString()}
+                                        item={item}
+                                        withdrawal={withdrawal}
+                                        language={language}
+                                    />
+                                );
+                            })}
+                        </View>
                     </View>
                 ) : null}
 
@@ -2761,6 +3028,17 @@ const styles =
 
         historyList: {
             gap: 12,
+        },
+
+        shareHistorySection: {
+            marginTop: 20,
+        },
+
+        shareHistoryHeader: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginBottom: 12,
+            paddingHorizontal: 2,
         },
 
         requestCard: {

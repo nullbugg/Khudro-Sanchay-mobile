@@ -33,6 +33,10 @@ import {
 import {
     getAdminMemberDetails,
     deleteAdminMember,
+    increaseMemberShares,
+    decreaseMemberShares,
+    previewMemberShareChange,
+    ShareChangePreview,
 } from '../../../lib/admin-api';
 
 type MemberDetails = NonNullable<
@@ -94,15 +98,15 @@ const translations = {
         effectiveDate: 'কার্যকর হওয়ার তারিখ',
         datePlaceholder: 'DD-MM-YYYY',
         newWeeklyAmount: 'নতুন সাপ্তাহিক জমা',
-        shareDifference: 'শেয়ারের পার্থক্য',
-        additionalPayable: 'অতিরিক্ত জমার প্রিভিউ',
-        refundPreview: 'ফেরতের প্রিভিউ',
-        shareNote: 'এটি প্রাথমিক প্রিভিউ। চূড়ান্ত হিসাব ও আপডেটের জন্য Backend সংযুক্ত করতে হবে।',
-        update: 'আপডেট করুন',
+        additionalDepositAmount: 'অতিরিক্ত জমার পরিমাণ',
+        refundAmount: 'ফেরত দেওয়ার পরিমাণ',
+        previewLoading: 'হিসাব করা হচ্ছে...',
+        previewUnavailable: 'হিসাব দেখানো যাচ্ছে না। আবার চেষ্টা করুন।',
+        update: 'পরিবর্তন নিশ্চিত করুন',
         cancel: 'বাতিল',
-        previewError: 'সঠিক শেয়ার সংখ্যা ও তারিখ দিন।',
-        previewOnly: 'প্রিভিউ',
-        backendRequired: 'শেয়ার পরিবর্তনের API এখনো যুক্ত করা হয়নি। কোনো তথ্য পরিবর্তন করা হয়নি।',
+        previewError: '১ থেকে ১৫-এর মধ্যে সঠিক শেয়ার সংখ্যা দিন।',
+        previewOnly: 'শেয়ার পরিবর্তন',
+        backendRequired: 'শেয়ার পরিবর্তনের API-তে সমস্যা হয়েছে।',
         accountStatus: 'অ্যাকাউন্ট স্ট্যাটাস',
         active: 'সক্রিয়',
         inactive: 'নিষ্ক্রিয়',
@@ -119,6 +123,14 @@ const translations = {
         admin: 'অ্যাডমিন',
         week: 'সপ্তাহ',
         taka: '৳',
+        shareNote: 'শেয়ার কমানোর আগে সদস্যকে প্রযোজ্য টাকা বাস্তবে ফেরত দিতে হবে।',
+        increaseConfirm: 'আপনি কি সদস্যের শেয়ার সংখ্যা বাড়াতে চান?',
+        decreaseConfirm: 'শেয়ার কমানোর আগে সদস্যকে প্রযোজ্য টাকা ফেরত দিয়েছেন কি?',
+        decreaseWarning: 'সতর্কতা: এই কাজটি নিশ্চিত করলে শেয়ার সংখ্যা কমে যাবে। টাকা ফেরত না দিয়ে নিশ্চিত করবেন না।',
+        updateSuccess: 'শেয়ার সংখ্যা সফলভাবে পরিবর্তন হয়েছে।',
+        updateFailed: 'শেয়ার পরিবর্তন করা যায়নি।',
+        updating: 'শেয়ার আপডেট হচ্ছে...',
+        sameShares: 'বর্তমান শেয়ার সংখ্যার সঙ্গে নতুন সংখ্যা একই।',
     },
 
     en: {
@@ -161,15 +173,16 @@ const translations = {
         effectiveDate: 'Effective Date',
         datePlaceholder: 'DD-MM-YYYY',
         newWeeklyAmount: 'New Weekly Deposit',
-        shareDifference: 'Share Difference',
-        additionalPayable: 'Additional Payment Preview',
-        refundPreview: 'Refund Preview',
-        shareNote: 'This is a preliminary preview. Backend integration is required for the final calculation and update.',
-        update: 'Update',
+        additionalDepositAmount: 'Additional Deposit Amount',
+        refundAmount: 'Refund Amount',
+        previewLoading: 'Calculating preview...',
+        previewUnavailable: 'Preview is unavailable. Please try again.',
+        shareNote: 'Before decreasing shares, the applicable refund must be paid to the member manually.',
+        update: 'Confirm Change',
         cancel: 'Cancel',
-        previewError: 'Enter a valid share count and date.',
-        previewOnly: 'Preview',
-        backendRequired: 'The share update API is not connected yet. No data has been changed.',
+        previewError: 'Enter a valid share count between 1 and 15.',
+        previewOnly: 'Share Management',
+        backendRequired: 'There was a problem updating shares.',
         accountStatus: 'Account Status',
         active: 'Active',
         inactive: 'Inactive',
@@ -186,6 +199,13 @@ const translations = {
         admin: 'Admin',
         week: 'Week',
         taka: '৳',
+        increaseConfirm: 'Do you want to increase this member’s share count?',
+        decreaseConfirm: 'Have you actually refunded the applicable amount to the member?',
+        decreaseWarning: 'Warning: Confirming this action will decrease the share count. Do not continue before completing the refund.',
+        updateSuccess: 'Share count updated successfully.',
+        updateFailed: 'Could not update share count.',
+        updating: 'Updating shares...',
+        sameShares: 'The new share count is the same as the current count.',
     },
 
 } as const;
@@ -428,7 +448,18 @@ export default function AccessMemberDetailsScreen() {
 
     const [newShares, setNewShares] = useState('');
 
-    const [effectiveDate, setEffectiveDate] = useState('');
+    const [updatingShares, setUpdatingShares] = useState(false);
+
+    const [sharePreview, setSharePreview] =
+        useState<ShareChangePreview | null>(null);
+
+    const [previewLoading, setPreviewLoading] = useState(false);
+
+    const [previewError, setPreviewError] = useState('');
+
+    const previewRequestId = useRef(0);
+
+    const shareUpdateInProgress = useRef(false);
 
     const [statusPreview, setStatusPreview] = useState(false);
 
@@ -587,59 +618,234 @@ export default function AccessMemberDetailsScreen() {
 
         requestedShares <= MAX_SHARES;
 
-    const shareDifference = shareCountValid
-
-        ? requestedShares - currentShares
-
-        : 0;
-
-    const weeklyAmountPreview = shareCountValid
-
-        ? requestedShares * WEEKLY_RATE_PER_SHARE
-
-        : 0;
-
-    const additionalPreview = Math.max(0, shareDifference) *
-
-        WEEKLY_RATE_PER_SHARE;
-
-    const refundPreview = Math.max(0, -shareDifference) *
-
-        WEEKLY_RATE_PER_SHARE;
-
-    const openShareModal = () => {
-
-        setNewShares(String(member?.currentShareCount ?? 1));
-
-        setEffectiveDate('');
-
-        setShareModalVisible(true);
-
-    };
-
-    const previewShareUpdate = () => {
-
-        const validDate = /^\d{2}-\d{2}-\d{4}$/.test(effectiveDate.trim());
-
-        if (!shareCountValid || !validDate) {
-
-            Alert.alert(t.previewOnly, t.previewError);
-
+    useEffect(() => {
+        if (!shareModalVisible || !shareCountValid || !memberId) {
+            setSharePreview(null);
+            setPreviewError('');
+            setPreviewLoading(false);
             return;
-
         }
 
-        setShareModalVisible(false);
+        const requestId = ++previewRequestId.current;
+
+        setSharePreview(null);
+        setPreviewError('');
+        setPreviewLoading(true);
+
+        const timer = setTimeout(async () => {
+            try {
+                const result = await previewMemberShareChange(
+                    String(member?.memberId ?? memberId),
+                    requestedShares,
+                );
+
+                if (requestId !== previewRequestId.current) {
+                    return;
+                }
+
+                if (!result.success || !result.data) {
+                    setSharePreview(null);
+                    setPreviewError(
+                        result.message || t.previewUnavailable,
+                    );
+                    return;
+                }
+
+                if (
+                    result.data.currentShareCount !== currentShares ||
+                    result.data.newShareCount !== requestedShares
+                ) {
+                    setSharePreview(null);
+                    setPreviewError(t.previewUnavailable);
+                    return;
+                }
+
+                setSharePreview(result.data);
+            } catch (error) {
+                console.error('Share preview loading error:', error);
+
+                if (requestId === previewRequestId.current) {
+                    setSharePreview(null);
+                    setPreviewError(t.previewUnavailable);
+                }
+            } finally {
+                if (requestId === previewRequestId.current) {
+                    setPreviewLoading(false);
+                }
+            }
+        }, 300);
+
+        return () => {
+            clearTimeout(timer);
+            previewRequestId.current += 1;
+        };
+    }, [
+        shareModalVisible,
+        shareCountValid,
+        memberId,
+        member?.memberId,
+        requestedShares,
+        currentShares,
+        t.previewUnavailable,
+    ]);
+
+    const previewMatchesInput =
+        sharePreview !== null &&
+        sharePreview.currentShareCount === currentShares &&
+        sharePreview.newShareCount === requestedShares;
+
+    const weeklyAmountPreview = sharePreview?.newWeeklyAmount ?? 0;
+    const additionalPreview = sharePreview?.additionalDepositAmount ?? 0;
+    const refundPreview = sharePreview?.refundAmount ?? 0;
+
+    const previewReady =
+        shareCountValid &&
+        previewMatchesInput &&
+        !previewLoading &&
+        !previewError;
+
+
+    const openShareModal = () => {
+        if (updatingShares || shareUpdateInProgress.current) return;
+
+        setNewShares(String(member?.currentShareCount ?? 1));
+        setSharePreview(null);
+        setPreviewError('');
+        setShareModalVisible(true);
+    };
+
+    const executeShareUpdate = async () => {
+        if (shareUpdateInProgress.current) return;
+
+        const targetMemberId = String(
+            member?.memberId ?? memberId ?? ''
+        ).trim();
+
+        if (!targetMemberId || !shareCountValid) {
+            Alert.alert(t.changeShares, t.previewError);
+            return;
+        }
+
+        if (requestedShares === currentShares) {
+            Alert.alert(t.changeShares, t.sameShares);
+            return;
+        }
+
+        shareUpdateInProgress.current = true;
+        setUpdatingShares(true);
+
+        try {
+            const result = requestedShares > currentShares
+                ? await increaseMemberShares(
+                    targetMemberId,
+                    requestedShares
+                )
+                : await decreaseMemberShares(
+                    targetMemberId,
+                    requestedShares,
+                    true
+                );
+
+            if (!result.success) {
+                Alert.alert(
+                    t.changeShares,
+                    result.message || t.updateFailed
+                );
+                return;
+            }
+
+            setShareModalVisible(false);
+
+            Alert.alert(
+                t.changeShares,
+                result.message || t.updateSuccess,
+                [
+                    {
+                        text: 'OK',
+                        onPress: () => {
+                            setReloadKey(value => value + 1);
+                        },
+                    },
+                ]
+            );
+        } catch (error) {
+            console.error('Share update error:', error);
+
+            Alert.alert(
+                t.changeShares,
+                t.updateFailed
+            );
+        } finally {
+            shareUpdateInProgress.current = false;
+            setUpdatingShares(false);
+        }
+    };
+
+    const confirmShareUpdate = () => {
+        if (updatingShares || shareUpdateInProgress.current) return;
+
+        if (!shareCountValid) {
+            Alert.alert(t.changeShares, t.previewError);
+            return;
+        }
+
+        if (requestedShares === currentShares) {
+            Alert.alert(t.changeShares, t.sameShares);
+            return;
+        }
+
+        if (!previewReady || !sharePreview) {
+            Alert.alert(
+                t.changeShares,
+                previewError || t.previewLoading,
+            );
+            return;
+        }
+
+        if (requestedShares > currentShares) {
+            Alert.alert(
+                t.changeShares,
+                `${t.increaseConfirm}\n\n` +
+                `${t.newWeeklyAmount}: ${formatAmount(weeklyAmountPreview, language)}\n` +
+                `${t.additionalDepositAmount}: ${formatAmount(additionalPreview, language)}`,
+                [
+                    {
+                        text: t.cancel,
+                        style: 'cancel',
+                    },
+                    {
+                        text: t.update,
+                        onPress: executeShareUpdate,
+                    },
+                ],
+            );
+
+            return;
+        }
 
         Alert.alert(
-
-            t.previewOnly,
-
-            `${t.newWeeklyAmount}: ${formatAmount(weeklyAmountPreview, language)}\n\n${t.shareNote}\n\n${t.backendRequired}`
-
+            t.changeShares,
+            `${t.decreaseConfirm}\n\n` +
+            `${t.newWeeklyAmount}: ${formatAmount(weeklyAmountPreview, language)}\n` +
+            `${t.refundAmount}: ${formatAmount(refundPreview, language)}\n\n` +
+            `${t.decreaseWarning}`,
+            [
+                {
+                    text: t.cancel,
+                    style: 'cancel',
+                },
+                {
+                    text: language === 'bn'
+                        ? 'হ্যাঁ, টাকা ফেরত দিয়েছি'
+                        : 'Yes, Refund Paid',
+                    style: 'destructive',
+                    onPress: executeShareUpdate,
+                },
+            ],
         );
-
     };
+
+
 
     const openHistory = () => {
         router.push({
@@ -1279,11 +1485,9 @@ export default function AccessMemberDetailsScreen() {
                             <Text style={styles.modalTitle}>{t.changeShares}</Text>
 
                             <Pressable
-
                                 onPress={() => setShareModalVisible(false)}
-
+                                disabled={updatingShares}
                                 style={styles.modalClose}
-
                             >
 
                                 <Ionicons name="close" size={22} color="#475569" />
@@ -1322,102 +1526,111 @@ export default function AccessMemberDetailsScreen() {
 
                         />
 
-                        <Text style={styles.inputLabel}>{t.effectiveDate}</Text>
-
-                        <TextInput
-
-                            value={effectiveDate}
-
-                            onChangeText={setEffectiveDate}
-
-                            placeholder={t.datePlaceholder}
-
-                            placeholderTextColor="#94a3b8"
-
-                            keyboardType="numbers-and-punctuation"
-
-                            maxLength={10}
-
-                            style={styles.input}
-
-                        />
 
                         <View style={styles.previewCard}>
 
-                            <PreviewRow
+                            {previewLoading ? (
+                                <View style={styles.previewLoading}>
+                                    <ActivityIndicator size="small" color="#0f172a" />
+                                    <Text style={styles.previewLoadingText}>
+                                        {t.previewLoading}
+                                    </Text>
+                                </View>
+                            ) : previewError ? (
+                                <Text style={styles.previewErrorText}>
+                                    {previewError}
+                                </Text>
+                            ) : previewReady && sharePreview ? (
+                                <>
+                                    <PreviewRow
+                                        label={t.newWeeklyAmount}
+                                        value={formatAmount(
+                                            sharePreview.newWeeklyAmount,
+                                            language,
+                                        )}
+                                    />
 
-                                label={t.newWeeklyAmount}
-
-                                value={formatAmount(weeklyAmountPreview, language)}
-
-                            />
-
-                            <PreviewRow
-
-                                label={t.shareDifference}
-
-                                value={`${shareDifference > 0 ? '+' : ''}${formatNumber(shareDifference, language)}`}
-
-                            />
-
-                            <PreviewRow
-
-                                label={t.additionalPayable}
-
-                                value={formatAmount(additionalPreview, language)}
-
-                            />
-
-                            <PreviewRow
-
-                                label={t.refundPreview}
-
-                                value={formatAmount(refundPreview, language)}
-
-                                last
-
-                            />
+                                    {sharePreview.changeType === 'INCREASE' ? (
+                                        <PreviewRow
+                                            label={t.additionalDepositAmount}
+                                            value={formatAmount(
+                                                sharePreview.additionalDepositAmount,
+                                                language,
+                                            )}
+                                            last
+                                        />
+                                    ) : sharePreview.changeType === 'DECREASE' ? (
+                                        <PreviewRow
+                                            label={t.refundAmount}
+                                            value={formatAmount(
+                                                sharePreview.refundAmount,
+                                                language,
+                                            )}
+                                            last
+                                        />
+                                    ) : null}
+                                </>
+                            ) : (
+                                <Text style={styles.previewErrorText}>
+                                    {t.previewUnavailable}
+                                </Text>
+                            )}
 
                         </View>
 
                         <Text style={styles.modalNote}>{t.shareNote}</Text>
 
                         <View style={styles.modalActions}>
-
                             <Pressable
-
                                 onPress={() => setShareModalVisible(false)}
-
-                                style={styles.cancelButton}
-
+                                disabled={updatingShares}
+                                style={[
+                                    styles.cancelButton,
+                                    updatingShares && { opacity: 0.5 },
+                                ]}
                             >
-
-                                <Text style={styles.cancelButtonText}>{t.cancel}</Text>
-
+                                <Text style={styles.cancelButtonText}>
+                                    {t.cancel}
+                                </Text>
                             </Pressable>
 
                             <Pressable
-
-                                onPress={previewShareUpdate}
-
-                                style={styles.updateButton}
-
+                                onPress={confirmShareUpdate}
+                                disabled={
+                                    updatingShares ||
+                                    !shareCountValid ||
+                                    !previewReady ||
+                                    requestedShares === currentShares
+                                }
+                                style={[
+                                    styles.updateButton,
+                                    (
+                                        updatingShares ||
+                                        !shareCountValid ||
+                                        !previewReady ||
+                                        requestedShares === currentShares
+                                    ) && {
+                                        opacity: 0.5,
+                                    },
+                                ]}
                             >
+                                {updatingShares ? (
+                                    <ActivityIndicator
+                                        size="small"
+                                        color="#ffffff"
+                                    />
+                                ) : (
+                                    <Ionicons
+                                        name="checkmark-circle-outline"
+                                        size={18}
+                                        color="#ffffff"
+                                    />
+                                )}
 
-                                <Ionicons
-
-                                    name="eye-outline"
-
-                                    size={18}
-
-                                    color="#ffffff"
-
-                                />
-
-                                <Text style={styles.updateButtonText}>{t.update}</Text>
-
+                                <Text style={styles.updateButtonText}>
+                                    {updatingShares ? t.updating : t.update}
+                                </Text>
                             </Pressable>
-
                         </View>
 
                     </View>
@@ -2287,6 +2500,27 @@ const styles = StyleSheet.create({
 
     bottomSpacing: {
         height: 20,
+    },
+
+    previewLoading: {
+        minHeight: 55,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 9,
+    },
+
+    previewLoadingText: {
+        fontSize: 11,
+        color: '#64748b',
+    },
+
+    previewErrorText: {
+        paddingVertical: 13,
+        fontSize: 11,
+        lineHeight: 18,
+        color: '#dc2626',
+        textAlign: 'center',
     },
 
 });

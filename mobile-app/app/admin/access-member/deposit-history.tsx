@@ -1,3 +1,4 @@
+
 import React, {
     useCallback,
     useEffect,
@@ -30,6 +31,12 @@ import {
     MemberPendingDeposit,
 } from '../../../lib/member-api';
 
+import {
+    getAdminShareHistory,
+    AdminShareHistoryItem,
+    AdminWithdrawalHistoryItem,
+} from '../../../lib/admin-api';
+
 /*
 |--------------------------------------------------------------------------
 | Translations
@@ -40,7 +47,6 @@ const translations = {
     bn: {
         title: 'জমার ইতিহাস',
         memberId: 'সদস্য ID',
-        totalRecords: 'মোট রেকর্ড',
         pending: 'অপেক্ষমাণ',
         approved: 'অনুমোদিত',
         rejected: 'বাতিল',
@@ -69,11 +75,31 @@ const translations = {
         back: 'ফিরে যান',
         connectionError: 'সার্ভারের সাথে সংযোগ করা যাচ্ছে না।',
         refresh: 'রিফ্রেশ করুন',
+
+        shareHistory: 'শেয়ার পরিবর্তনের ইতিহাস',
+        shareIncrease: 'শেয়ার বৃদ্ধি',
+        shareDecrease: 'শেয়ার হ্রাস',
+        previousShares: 'আগের শেয়ার',
+        newShares: 'নতুন শেয়ার',
+        previousWeeklyAmount: 'আগের সাপ্তাহিক জমা',
+        newWeeklyAmount: 'নতুন সাপ্তাহিক জমা',
+        changeWeek: 'পরিবর্তনের সপ্তাহ',
+        effectiveWeek: 'কার্যকর সপ্তাহ',
+        additionalRequirement: 'অতিরিক্ত জমার প্রয়োজন',
+        advanceApplied: 'অগ্রিম থেকে সমন্বয়',
+        newDepositRequired: 'নতুন জমার প্রয়োজন',
+        refundAmount: 'ফেরত দেওয়া টাকা',
+        changeDate: 'পরিবর্তনের তারিখ',
+        refundDetails: 'ফেরতের বিবরণ',
+        refundWeek: 'ফেরতের সপ্তাহ',
+        refundDate: 'ফেরতের তারিখ',
+        withdrawalId: 'Withdrawal ID',
+        emptyShareHistory: 'কোনো শেয়ার পরিবর্তনের ইতিহাস নেই',
     },
+
     en: {
         title: 'Deposit History',
         memberId: 'Member ID',
-        totalRecords: 'Total Records',
         pending: 'Pending',
         approved: 'Approved',
         rejected: 'Rejected',
@@ -102,6 +128,26 @@ const translations = {
         back: 'Go back',
         connectionError: 'Could not connect to the server.',
         refresh: 'Refresh',
+
+        shareHistory: 'Share Change History',
+        shareIncrease: 'Share Increase',
+        shareDecrease: 'Share Decrease',
+        previousShares: 'Previous Shares',
+        newShares: 'New Shares',
+        previousWeeklyAmount: 'Previous Weekly Amount',
+        newWeeklyAmount: 'New Weekly Amount',
+        changeWeek: 'Change Week',
+        effectiveWeek: 'Effective Week',
+        additionalRequirement: 'Additional Requirement',
+        advanceApplied: 'Advance Applied',
+        newDepositRequired: 'New Deposit Required',
+        refundAmount: 'Refund Amount',
+        changeDate: 'Change Date',
+        refundDetails: 'Refund Details',
+        refundWeek: 'Refund Week',
+        refundDate: 'Refund Date',
+        withdrawalId: 'Withdrawal ID',
+        emptyShareHistory: 'No share change history found',
     },
 } as const;
 
@@ -163,6 +209,87 @@ function displayValue(
     return String(value);
 }
 
+/*
+|--------------------------------------------------------------------------
+| Parse Date
+|--------------------------------------------------------------------------
+*/
+
+function parseDate(value: string): Date | null {
+    const raw = value.trim();
+
+    if (!raw) {
+        return null;
+    }
+
+    // DD-MM-YYYY
+    const dashDate = raw.match(
+        /^(\d{2})-(\d{2})-(\d{4})$/,
+    );
+
+    if (dashDate) {
+        const date = new Date(
+            Number(dashDate[3]),
+            Number(dashDate[2]) - 1,
+            Number(dashDate[1]),
+        );
+
+        return Number.isNaN(date.getTime())
+            ? null
+            : date;
+    }
+
+    // DD/MM/YYYY
+    const slashDate = raw.match(
+        /^(\d{2})\/(\d{2})\/(\d{4})$/,
+    );
+
+    if (slashDate) {
+        const date = new Date(
+            Number(slashDate[3]),
+            Number(slashDate[2]) - 1,
+            Number(slashDate[1]),
+        );
+
+        return Number.isNaN(date.getTime())
+            ? null
+            : date;
+    }
+
+    // ISO and other JavaScript-supported date formats
+    const candidate = new Date(raw);
+
+    if (Number.isNaN(candidate.getTime())) {
+        return null;
+    }
+
+    return candidate;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Date Timestamp — Sorting
+|--------------------------------------------------------------------------
+*/
+
+function getDateTimestamp(
+    value: string | undefined,
+): number {
+    if (!value?.trim()) {
+        return 0;
+    }
+
+    const parsed = parseDate(value);
+
+    return parsed?.getTime() ?? 0;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Format Date
+|--------------------------------------------------------------------------
+*/
+
 function formatDate(
     value: string | undefined,
     language: AdminLanguage,
@@ -173,44 +300,9 @@ function formatDate(
     }
 
     const raw = value.trim();
-
-    let parsed: Date | null = null;
-
-    // DD-MM-YYYY
-    const dashDate = raw.match(
-        /^(\d{2})-(\d{2})-(\d{4})$/,
-    );
-
-    if (dashDate) {
-        parsed = new Date(
-            Number(dashDate[3]),
-            Number(dashDate[2]) - 1,
-            Number(dashDate[1]),
-        );
-    }
-
-    // DD/MM/YYYY
-    const slashDate = raw.match(
-        /^(\d{2})\/(\d{2})\/(\d{4})$/,
-    );
-
-    if (!parsed && slashDate) {
-        parsed = new Date(
-            Number(slashDate[3]),
-            Number(slashDate[2]) - 1,
-            Number(slashDate[1]),
-        );
-    }
+    const parsed = parseDate(raw);
 
     if (!parsed) {
-        const candidate = new Date(raw);
-
-        if (!Number.isNaN(candidate.getTime())) {
-            parsed = candidate;
-        }
-    }
-
-    if (!parsed || Number.isNaN(parsed.getTime())) {
         return raw;
     }
 
@@ -223,6 +315,107 @@ function formatDate(
         },
     );
 }
+
+/*
+|--------------------------------------------------------------------------
+| Format Date Time
+|--------------------------------------------------------------------------
+*/
+
+function formatDateTime(
+    value: string | undefined,
+    language: AdminLanguage,
+    fallback: string,
+): string {
+    if (!value?.trim()) {
+        return fallback;
+    }
+
+    const raw = value.trim();
+    const parsed = parseDate(raw);
+
+    if (!parsed) {
+        return raw;
+    }
+
+    // Date-only values should not display a fake midnight time.
+    const isDateOnly =
+        /^\d{2}[-/]\d{2}[-/]\d{4}$/.test(raw);
+
+    return parsed.toLocaleString(
+        language === 'bn' ? 'bn-BD' : 'en-GB',
+        isDateOnly
+            ? {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+            }
+            : {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+            },
+    );
+}
+
+/*
+|--------------------------------------------------------------------------
+| Normalize ID
+|--------------------------------------------------------------------------
+*/
+
+function normalizeId(
+    value: string | undefined,
+): string {
+    return String(value ?? '')
+        .trim()
+        .toUpperCase();
+}
+
+/*
+|--------------------------------------------------------------------------
+| Match Withdrawal History
+|--------------------------------------------------------------------------
+*/
+
+function findRelatedWithdrawal(
+    item: AdminShareHistoryItem,
+    withdrawals: AdminWithdrawalHistoryItem[],
+): AdminWithdrawalHistoryItem | undefined {
+
+    const historyId = normalizeId(item.historyId);
+    const withdrawalId = normalizeId(item.withdrawalId);
+
+    // First priority: historyId
+    if (historyId) {
+        const matchedByHistoryId = withdrawals.find(
+            entry =>
+                normalizeId(entry.historyId) === historyId,
+        );
+
+        if (matchedByHistoryId) {
+            return matchedByHistoryId;
+        }
+    }
+
+    // Second priority: withdrawalId
+    if (withdrawalId) {
+        return withdrawals.find(
+            entry =>
+                normalizeId(entry.withdrawalId) === withdrawalId,
+        );
+    }
+
+    return undefined;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Status
+|--------------------------------------------------------------------------
+*/
 
 function getStatus(
     value: string | undefined,
@@ -257,6 +450,7 @@ function StatusBadge({
     let label = status || t.noValue;
     let badgeStyle = styles.unknownBadge;
     let textStyle = styles.unknownBadgeText;
+
     let icon: React.ComponentProps<typeof Ionicons>['name'] =
         'help-circle-outline';
 
@@ -619,6 +813,392 @@ function DepositHistoryCard({
 
 /*
 |--------------------------------------------------------------------------
+| Share History Card
+|--------------------------------------------------------------------------
+*/
+
+function ShareHistoryCard({
+    item,
+    withdrawal,
+    language,
+}: {
+    item: AdminShareHistoryItem;
+    withdrawal?: AdminWithdrawalHistoryItem;
+    language: AdminLanguage;
+}) {
+    const t = translations[language];
+
+    const isIncrease =
+        Number(item.newShareCount) >
+        Number(item.previousShareCount);
+
+    const isDecrease =
+        Number(item.newShareCount) <
+        Number(item.previousShareCount);
+
+    const title = isIncrease
+        ? t.shareIncrease
+        : t.shareDecrease;
+
+    return (
+        <View style={styles.historyCard}>
+            {/* Card Header */}
+            <View style={styles.historyCardHeader}>
+                <View style={styles.historyTitleContainer}>
+                    <View
+                        style={[
+                            styles.depositIcon,
+                            styles.shareIcon,
+                            {
+                                backgroundColor: isIncrease
+                                    ? '#f0fdf4'
+                                    : '#fef2f2',
+                            },
+                        ]}
+                    >
+                        <Ionicons
+                            name={
+                                isIncrease
+                                    ? 'trending-up'
+                                    : 'trending-down'
+                            }
+                            size={20}
+                            color={
+                                isIncrease
+                                    ? '#16a34a'
+                                    : '#dc2626'
+                            }
+                        />
+                    </View>
+
+                    <View style={styles.historyHeading}>
+                        <Text
+                            style={styles.depositId}
+                            numberOfLines={1}
+                        >
+                            {title}
+                        </Text>
+
+                        <Text
+                            style={styles.requestDate}
+                            numberOfLines={1}
+                        >
+                            {displayValue(
+                                item.historyId,
+                                t.noValue,
+                            )}
+                        </Text>
+                    </View>
+                </View>
+            </View>
+
+            <View style={styles.amountDivider} />
+
+            {/* Share Details */}
+            <View style={styles.detailGrid}>
+                <View style={styles.detailGridItem}>
+                    <Ionicons
+                        name="layers-outline"
+                        size={17}
+                        color="#64748b"
+                    />
+
+                    <Text style={styles.gridLabel}>
+                        {t.previousShares}
+                    </Text>
+
+                    <Text style={styles.gridValue}>
+                        {formatNumber(
+                            item.previousShareCount,
+                            language,
+                        )}
+                    </Text>
+                </View>
+
+                <View style={styles.detailGridItem}>
+                    <Ionicons
+                        name="layers-outline"
+                        size={17}
+                        color="#64748b"
+                    />
+
+                    <Text style={styles.gridLabel}>
+                        {t.newShares}
+                    </Text>
+
+                    <Text style={styles.gridValue}>
+                        {formatNumber(
+                            item.newShareCount,
+                            language,
+                        )}
+                    </Text>
+                </View>
+
+                <View style={styles.detailGridItem}>
+                    <Ionicons
+                        name="cash-outline"
+                        size={17}
+                        color="#64748b"
+                    />
+
+                    <Text style={styles.gridLabel}>
+                        {t.previousWeeklyAmount}
+                    </Text>
+
+                    <Text style={styles.gridValue}>
+                        {formatAmount(
+                            item.previousWeeklyAmount,
+                            language,
+                        )}
+                    </Text>
+                </View>
+
+                <View style={styles.detailGridItem}>
+                    <Ionicons
+                        name="wallet-outline"
+                        size={17}
+                        color="#64748b"
+                    />
+
+                    <Text style={styles.gridLabel}>
+                        {t.newWeeklyAmount}
+                    </Text>
+
+                    <Text style={styles.gridValue}>
+                        {formatAmount(
+                            item.newWeeklyAmount,
+                            language,
+                        )}
+                    </Text>
+                </View>
+
+                <View style={styles.detailGridItem}>
+                    <Ionicons
+                        name="calendar-outline"
+                        size={17}
+                        color="#64748b"
+                    />
+
+                    <Text style={styles.gridLabel}>
+                        {t.changeWeek}
+                    </Text>
+
+                    <Text style={styles.gridValue}>
+                        {formatNumber(
+                            item.changeWeek,
+                            language,
+                        )}
+                    </Text>
+                </View>
+
+                <View style={styles.detailGridItem}>
+                    <Ionicons
+                        name="calendar"
+                        size={17}
+                        color="#64748b"
+                    />
+
+                    <Text style={styles.gridLabel}>
+                        {t.effectiveWeek}
+                    </Text>
+
+                    <Text style={styles.gridValue}>
+                        {formatNumber(
+                            item.effectiveWeek,
+                            language,
+                        )}
+                    </Text>
+                </View>
+            </View>
+
+            {/* Share Increase Details */}
+            {isIncrease ? (
+                <>
+                    <View style={styles.shareInfoRow}>
+                        <Text style={styles.infoLabel}>
+                            {t.additionalRequirement}
+                        </Text>
+
+                        <Text style={styles.infoValue}>
+                            {formatAmount(
+                                item.additionalRequirement,
+                                language,
+                            )}
+                        </Text>
+                    </View>
+
+                    <View style={styles.shareInfoRow}>
+                        <Text style={styles.infoLabel}>
+                            {t.advanceApplied}
+                        </Text>
+
+                        <Text style={styles.infoValue}>
+                            {formatAmount(
+                                item.advanceApplied,
+                                language,
+                            )}
+                        </Text>
+                    </View>
+
+                    <View style={styles.shareInfoRow}>
+                        <Text style={styles.infoLabel}>
+                            {t.newDepositRequired}
+                        </Text>
+
+                        <Text style={styles.infoValue}>
+                            {formatAmount(
+                                item.newDepositRequired,
+                                language,
+                            )}
+                        </Text>
+                    </View>
+                </>
+            ) : null}
+
+            {/* Share Decrease Refund Details */}
+            {isDecrease && withdrawal ? (
+                <>
+                    <View style={styles.shareInfoRow}>
+                        <Ionicons
+                            name="cash-outline"
+                            size={17}
+                            color="#16a34a"
+                        />
+
+                        <Text style={styles.infoLabel}>
+                            {t.refundAmount}
+                        </Text>
+
+                        <Text
+                            style={[
+                                styles.infoValue,
+                                styles.refundValue,
+                            ]}
+                        >
+                            {formatAmount(
+                                withdrawal.refundAmount,
+                                language,
+                            )}
+                        </Text>
+                    </View>
+
+                    <View style={styles.shareInfoRow}>
+                        <Ionicons
+                            name="calendar-outline"
+                            size={17}
+                            color="#64748b"
+                        />
+
+                        <Text style={styles.infoLabel}>
+                            {t.refundWeek}
+                        </Text>
+
+                        <Text style={styles.infoValue}>
+                            {formatNumber(
+                                withdrawal.week,
+                                language,
+                            )}
+                        </Text>
+                    </View>
+
+                    <View style={styles.shareInfoRow}>
+                        <Ionicons
+                            name="document-text-outline"
+                            size={17}
+                            color="#64748b"
+                        />
+
+                        <Text style={styles.infoLabel}>
+                            {t.withdrawalId}
+                        </Text>
+
+                        <Text style={styles.infoValue}>
+                            {displayValue(
+                                withdrawal.withdrawalId,
+                                t.noValue,
+                            )}
+                        </Text>
+                    </View>
+
+                    {withdrawal.date ? (
+                        <View style={styles.shareInfoRow}>
+                            <Ionicons
+                                name="calendar-outline"
+                                size={17}
+                                color="#64748b"
+                            />
+
+                            <Text style={styles.infoLabel}>
+                                {t.refundDate}
+                            </Text>
+
+                            <Text style={styles.infoValue}>
+                                {formatDateTime(
+                                    withdrawal.date,
+                                    language,
+                                    t.noValue,
+                                )}
+                            </Text>
+                        </View>
+                    ) : null}
+                </>
+            ) : null}
+
+            {/* Change Date */}
+            <View style={styles.shareInfoRow}>
+                <Ionicons
+                    name="calendar-outline"
+                    size={17}
+                    color="#64748b"
+                />
+
+                <Text style={styles.infoLabel}>
+                    {t.changeDate}
+                </Text>
+
+                <Text style={styles.infoValue}>
+                    {formatDateTime(
+                        item.date,
+                        language,
+                        t.noValue,
+                    )}
+                </Text>
+            </View>
+
+            {/* Admin ID */}
+            {item.adminId ? (
+                <DetailRow
+                    label={t.adminId}
+                    value={String(item.adminId)}
+                />
+            ) : null}
+
+            {/* Withdrawal Notes */}
+            {isDecrease && withdrawal?.notes ? (
+                <View style={styles.shareNotesBox}>
+                    <View style={styles.shareNotesHeader}>
+                        <Ionicons
+                            name="information-circle-outline"
+                            size={17}
+                            color="#64748b"
+                        />
+
+                        <Text style={styles.shareNotesLabel}>
+                            {t.refundDetails}
+                        </Text>
+                    </View>
+
+                    <Text style={styles.shareNotesText}>
+                        {withdrawal.notes}
+                    </Text>
+                </View>
+            ) : null}
+        </View>
+    );
+}
+
+/*
+|--------------------------------------------------------------------------
 | Main Screen
 |--------------------------------------------------------------------------
 */
@@ -637,6 +1217,12 @@ export default function AdminMemberDepositHistoryScreen() {
 
     const [requests, setRequests] =
         useState<MemberPendingDeposit[]>([]);
+
+    const [shareHistory, setShareHistory] =
+        useState<AdminShareHistoryItem[]>([]);
+
+    const [withdrawalHistory, setWithdrawalHistory] =
+        useState<AdminWithdrawalHistoryItem[]>([]);
 
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -674,7 +1260,7 @@ export default function AdminMemberDepositHistoryScreen() {
 
     /*
      * ---------------------------------------------------------------
-     * Load Deposit History
+     * Load Deposit and Share History
      * ---------------------------------------------------------------
      */
 
@@ -682,6 +1268,8 @@ export default function AdminMemberDepositHistoryScreen() {
         async (isRefresh = false) => {
             if (!memberId) {
                 setRequests([]);
+                setShareHistory([]);
+                setWithdrawalHistory([]);
 
                 setError(
                     language === 'bn'
@@ -702,6 +1290,12 @@ export default function AdminMemberDepositHistoryScreen() {
 
             setError('');
 
+            /*
+             * Deposit History
+             *
+             * Existing API and behavior preserved.
+             */
+
             try {
                 const result =
                     await getMemberDepositHistory(memberId);
@@ -713,29 +1307,23 @@ export default function AdminMemberDepositHistoryScreen() {
                         result.message ||
                         translations[language].errorTitle,
                     );
+                } else {
+                    const sortedRequests = [
+                        ...result.requests,
+                    ].sort((a, b) => {
+                        const dateA = getDateTimestamp(
+                            a.requestDate,
+                        );
 
-                    return;
+                        const dateB = getDateTimestamp(
+                            b.requestDate,
+                        );
+
+                        return dateB - dateA;
+                    });
+
+                    setRequests(sortedRequests);
                 }
-
-                // Keep all statuses and sort newest first.
-                const sortedRequests = [
-                    ...result.requests,
-                ].sort((a, b) => {
-                    const dateA = new Date(
-                        a.requestDate || '',
-                    ).getTime();
-
-                    const dateB = new Date(
-                        b.requestDate || '',
-                    ).getTime();
-
-                    return (
-                        (Number.isFinite(dateB) ? dateB : 0) -
-                        (Number.isFinite(dateA) ? dateA : 0)
-                    );
-                });
-
-                setRequests(sortedRequests);
             } catch (err) {
                 console.error(
                     'Admin member deposit history error:',
@@ -747,10 +1335,92 @@ export default function AdminMemberDepositHistoryScreen() {
                 setError(
                     translations[language].connectionError,
                 );
-            } finally {
-                setLoading(false);
-                setRefreshing(false);
             }
+
+            /*
+             * Share History
+             *
+             * Independent API call.
+             * Share API failure will not affect Deposit History.
+             */
+
+            try {
+                const shareResult =
+                    await getAdminShareHistory(memberId);
+
+                if (
+                    shareResult.success &&
+                    shareResult.data
+                ) {
+                    const shares = Array.isArray(
+                        shareResult.data.shareHistory,
+                    )
+                        ? [...shareResult.data.shareHistory]
+                        : [];
+
+                    const withdrawals = Array.isArray(
+                        shareResult.data.withdrawalHistory,
+                    )
+                        ? [...shareResult.data.withdrawalHistory]
+                        : [];
+
+                    // Latest Share History first
+                    shares.sort((a, b) => {
+                        const dateDifference =
+                            getDateTimestamp(b.date) -
+                            getDateTimestamp(a.date);
+
+                        if (dateDifference !== 0) {
+                            return dateDifference;
+                        }
+
+                        return (
+                            Number(b.changeWeek || 0) -
+                            Number(a.changeWeek || 0)
+                        );
+                    });
+
+                    // Latest Withdrawal History first
+                    withdrawals.sort((a, b) => {
+                        const dateDifference =
+                            getDateTimestamp(b.date) -
+                            getDateTimestamp(a.date);
+
+                        if (dateDifference !== 0) {
+                            return dateDifference;
+                        }
+
+                        return (
+                            Number(b.week || 0) -
+                            Number(a.week || 0)
+                        );
+                    });
+
+                    setShareHistory(shares);
+                    setWithdrawalHistory(withdrawals);
+                } else {
+                    setShareHistory([]);
+                    setWithdrawalHistory([]);
+
+                    if (!shareResult.success) {
+                        console.warn(
+                            'Admin share history:',
+                            shareResult.message,
+                        );
+                    }
+                }
+            } catch (shareError) {
+                console.error(
+                    'Admin share history load error:',
+                    shareError,
+                );
+
+                setShareHistory([]);
+                setWithdrawalHistory([]);
+            }
+
+            setLoading(false);
+            setRefreshing(false);
         },
         [memberId, language, reloadKey],
     );
@@ -761,7 +1431,7 @@ export default function AdminMemberDepositHistoryScreen() {
 
     /*
      * ---------------------------------------------------------------
-     * Status Counts and Total
+     * Status Counts
      * ---------------------------------------------------------------
      */
 
@@ -776,7 +1446,6 @@ export default function AdminMemberDepositHistoryScreen() {
     const rejectedCount = requests.filter(
         item => getStatus(item.status) === 'REJECTED',
     ).length;
-
 
     const memberName =
         routeMemberName ||
@@ -829,7 +1498,7 @@ export default function AdminMemberDepositHistoryScreen() {
                     </Text>
                 </View>
 
-                {/* Member Name and ID — Right Side */}
+                {/* Member Name and ID */}
                 <View style={styles.headerIdentity}>
                     <Text
                         style={styles.headerMemberName}
@@ -846,7 +1515,6 @@ export default function AdminMemberDepositHistoryScreen() {
                     </Text>
                 </View>
             </View>
-
 
             {/* Content */}
             <ScrollView
@@ -915,7 +1583,6 @@ export default function AdminMemberDepositHistoryScreen() {
                         </View>
                     ) : (
                         <>
-
                             {/* Status Summary */}
                             <View style={styles.summaryGrid}>
                                 <SummaryCard
@@ -952,7 +1619,7 @@ export default function AdminMemberDepositHistoryScreen() {
                                 />
                             </View>
 
-                            {/* History Section Header */}
+                            {/* Deposit History Header */}
                             <View style={styles.sectionHeader}>
                                 <View style={styles.sectionIcon}>
                                     <Ionicons
@@ -976,7 +1643,7 @@ export default function AdminMemberDepositHistoryScreen() {
                                 </View>
                             </View>
 
-                            {/* Empty State */}
+                            {/* Deposit Empty State */}
                             {requests.length === 0 ? (
                                 <View style={styles.emptyCard}>
                                     <View style={styles.emptyIcon}>
@@ -991,9 +1658,7 @@ export default function AdminMemberDepositHistoryScreen() {
                                         {t.emptyTitle}
                                     </Text>
 
-                                    <Text
-                                        style={styles.emptyDescription}
-                                    >
+                                    <Text style={styles.emptyDescription}>
                                         {t.emptyDescription}
                                     </Text>
 
@@ -1014,15 +1679,13 @@ export default function AdminMemberDepositHistoryScreen() {
                                             color="#2563eb"
                                         />
 
-                                        <Text
-                                            style={styles.emptyRefreshText}
-                                        >
+                                        <Text style={styles.emptyRefreshText}>
                                             {t.refresh}
                                         </Text>
                                     </Pressable>
                                 </View>
                             ) : (
-                                /* History List */
+                                /* Deposit History List */
                                 requests.map((item, index) => (
                                     <DepositHistoryCard
                                         key={`${item.requestId || item.rowIndex || 'deposit'}-${index}`}
@@ -1031,6 +1694,55 @@ export default function AdminMemberDepositHistoryScreen() {
                                     />
                                 ))
                             )}
+
+                            {/* Share History Section */}
+                            {shareHistory.length > 0 ? (
+                                <View style={styles.shareHistorySection}>
+                                    <View style={styles.sectionHeader}>
+                                        <View style={styles.sectionIcon}>
+                                            <Ionicons
+                                                name="swap-horizontal-outline"
+                                                size={19}
+                                                color="#2563eb"
+                                            />
+                                        </View>
+
+                                        <Text style={styles.sectionTitle}>
+                                            {t.shareHistory}
+                                        </Text>
+
+                                        <View style={styles.countBadge}>
+                                            <Text style={styles.countBadgeText}>
+                                                {formatNumber(
+                                                    shareHistory.length,
+                                                    language,
+                                                )}
+                                            </Text>
+                                        </View>
+                                    </View>
+
+                                    {shareHistory.map((item, index) => {
+                                        const withdrawal =
+                                            findRelatedWithdrawal(
+                                                item,
+                                                withdrawalHistory,
+                                            );
+
+                                        return (
+                                            <ShareHistoryCard
+                                                key={
+                                                    item.historyId ||
+                                                    item.withdrawalId ||
+                                                    `share-${index}`
+                                                }
+                                                item={item}
+                                                withdrawal={withdrawal}
+                                                language={language}
+                                            />
+                                        );
+                                    })}
+                                </View>
+                            ) : null}
                         </>
                     )}
 
@@ -1269,6 +1981,10 @@ const styles = StyleSheet.create({
         marginRight: 10,
     },
 
+    shareIcon: {
+        backgroundColor: '#f0fdf4',
+    },
+
     historyHeading: {
         flex: 1,
         minWidth: 0,
@@ -1488,6 +2204,73 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#334155',
         textAlign: 'right',
+    },
+
+    /*
+     * Share History Extra Details
+     */
+
+    shareInfoRow: {
+        minHeight: 38,
+        marginTop: 8,
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+        backgroundColor: '#f8fafc',
+        borderRadius: 9,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 7,
+    },
+
+    infoLabel: {
+        flex: 1,
+        fontSize: 10,
+        lineHeight: 16,
+        color: '#64748b',
+    },
+
+    infoValue: {
+        flexShrink: 0,
+        maxWidth: '55%',
+        fontSize: 11,
+        lineHeight: 16,
+        fontWeight: '800',
+        color: '#334155',
+        textAlign: 'right',
+    },
+
+    refundValue: {
+        color: '#16a34a',
+    },
+
+    shareNotesBox: {
+        marginTop: 9,
+        padding: 10,
+        backgroundColor: '#f8fafc',
+        borderRadius: 10,
+    },
+
+    shareNotesHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+
+    shareNotesLabel: {
+        marginLeft: 6,
+        fontSize: 11,
+        fontWeight: '700',
+        color: '#64748b',
+    },
+
+    shareNotesText: {
+        marginTop: 5,
+        fontSize: 12,
+        lineHeight: 18,
+        color: '#475569',
+    },
+
+    shareHistorySection: {
+        marginTop: 22,
     },
 
     /*

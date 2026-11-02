@@ -38,9 +38,10 @@ import {
     getAdminProfile,
     getCurrentAdmin,
     getAdminDepositHistory,
+    getAdminMembers,
+    getAdminShareHistory,
     clearCurrentAdmin,
 } from '../../lib/admin-api';
-
 
 /* ==========================================================================
    TYPES
@@ -89,6 +90,40 @@ type HistoryRecord = PendingDeposit & {
     historyWeek: number;
     weekStart: string;
     weekEnd: string;
+};
+
+type ShareHistoryItem = {
+    historyId: string;
+    memberId: string;
+    memberName: string;
+    previousShareCount: number;
+    newShareCount: number;
+    previousWeeklyAmount: number;
+    newWeeklyAmount: number;
+    changeWeek: number;
+    effectiveWeek: number;
+    additionalRequirement: number;
+    advanceApplied: number;
+    newDepositRequired: number;
+    adminId: string;
+    date: string;
+    withdrawalId?: string;
+};
+
+type WithdrawalHistoryItem = {
+    withdrawalId: string;
+    memberId: string;
+    memberName: string;
+    refundAmount: number;
+    historyId: string;
+    week: number;
+    date: string;
+    adminId: string;
+    notes: string;
+};
+
+type ShareHistoryRecord = ShareHistoryItem & {
+    withdrawal?: WithdrawalHistoryItem;
 };
 
 
@@ -266,6 +301,53 @@ const translations = {
         failedToLoad:
             'জমার হিস্টরি লোড করা যায়নি',
 
+        shareHistory:
+            'শেয়ার পরিবর্তনের হিস্টরি',
+
+        shareIncrease:
+            'শেয়ার বৃদ্ধি',
+
+        shareDecrease:
+            'শেয়ার হ্রাস',
+
+        previousShare:
+            'আগের শেয়ার',
+
+        newShare:
+            'নতুন শেয়ার',
+
+        previousWeeklyAmount:
+            'আগের সাপ্তাহিক জমা',
+
+        newWeeklyAmount:
+            'নতুন সাপ্তাহিক জমা',
+
+        changeWeek:
+            'পরিবর্তনের সপ্তাহ',
+
+        effectiveWeek:
+            'কার্যকর হওয়ার সপ্তাহ',
+
+        additionalRequirement:
+            'অতিরিক্ত প্রয়োজন',
+
+        advanceApplied:
+            'অগ্রিম সমন্বয়',
+
+        newDepositRequired:
+            'নতুন জমার পরিমাণ',
+
+        refundAmount:
+            'ফেরত দেওয়া টাকা',
+
+        withdrawalWeek:
+            'উত্তোলনের সপ্তাহ',
+
+        totalCollection: 'মোট কালেকশন',
+
+        noShareHistory:
+            'এই সপ্তাহে কোনো শেয়ার পরিবর্তনের হিস্টরি নেই',
+
     },
 
 
@@ -414,6 +496,53 @@ const translations = {
 
         failedToLoad:
             'Failed to load deposit history',
+
+        shareHistory:
+            'Share Change History',
+
+        shareIncrease:
+            'Share Increase',
+
+        shareDecrease:
+            'Share Decrease',
+
+        previousShare:
+            'Previous Shares',
+
+        newShare:
+            'New Shares',
+
+        previousWeeklyAmount:
+            'Previous Weekly Deposit',
+
+        newWeeklyAmount:
+            'New Weekly Deposit',
+
+        changeWeek:
+            'Change Week',
+
+        effectiveWeek:
+            'Effective Week',
+
+        additionalRequirement:
+            'Additional Requirement',
+
+        advanceApplied:
+            'Advance Applied',
+
+        newDepositRequired:
+            'New Deposit Required',
+
+        refundAmount:
+            'Refund Amount',
+
+        withdrawalWeek:
+            'Withdrawal Week',
+
+        totalCollection: 'Total Collection',
+
+        noShareHistory:
+            'No share changes for this week',
 
     },
 
@@ -1041,6 +1170,11 @@ export default function AdminWeeklyDepositHistoryScreen() {
     ] = useState<PendingDeposit[]>([]);
 
     const [
+        shareChanges,
+        setShareChanges,
+    ] = useState<ShareHistoryRecord[]>([]);
+
+    const [
         loading,
         setLoading,
     ] = useState(true);
@@ -1055,12 +1189,7 @@ export default function AdminWeeklyDepositHistoryScreen() {
        WEEK FILTER
        ---------------------------------------------------------------------- */
 
-    const weekOptions =
-        useMemo(
-            () =>
-                getWeekOptions(),
-            []
-        );
+    const weekOptions = getWeekOptions();
 
     const [
         selectedWeek,
@@ -1332,6 +1461,99 @@ export default function AdminWeeklyDepositHistoryScreen() {
         );
 
 
+    const loadShareChanges = useCallback(async () => {
+        try {
+
+            const membersResult = await getAdminMembers();
+
+            if (
+                !membersResult.success ||
+                !Array.isArray(membersResult.members)
+            ) {
+                console.error('Failed to load members for share history');
+                setShareChanges([]);
+                return;
+            }
+
+            const members = membersResult.members;
+            const allShareChanges: ShareHistoryRecord[] = [];
+
+            for (let i = 0; i < members.length; i += 5) {
+                const batch = members.slice(i, i + 5);
+
+                const batchResults = await Promise.all(
+                    batch.map(async (member: any) => {
+                        const memberId = String(
+                            member.memberId || member.id || ''
+                        ).trim();
+
+                        const memberName = String(
+                            member.memberName || member.name || ''
+                        ).trim();
+
+                        if (!memberId) return [];
+
+                        try {
+                            const result = await getAdminShareHistory(memberId);
+
+
+                            if (!result.success) {
+                                console.error(
+                                    `Share History Failed - ${memberId}:`,
+                                    result.message
+                                );
+                                return [];
+                            }
+
+                            const data = result.data;
+
+                            const shareHistory = Array.isArray(data?.shareHistory)
+                                ? data.shareHistory
+                                : [];
+
+                            const withdrawalHistory = Array.isArray(data?.withdrawalHistory)
+                                ? data.withdrawalHistory
+                                : [];
+
+                            return shareHistory.map((item: any) => {
+                                const withdrawal = withdrawalHistory.find(
+                                    (w: any) =>
+                                        w.historyId === item.historyId ||
+                                        (
+                                            item.withdrawalId &&
+                                            w.withdrawalId === item.withdrawalId
+                                        )
+                                );
+
+                                return {
+                                    ...item,
+                                    memberName,
+                                    withdrawal: withdrawal || undefined,
+                                } as ShareHistoryRecord;
+                            });
+                        } catch (error) {
+                            console.error(
+                                `Share history error for ${memberId}:`,
+                                error
+                            );
+                            return [];
+                        }
+                    })
+                );
+
+                allShareChanges.push(...batchResults.flat());
+            }
+
+            setShareChanges(allShareChanges);
+
+        } catch (error) {
+            console.error('Load share changes error:', error);
+            setShareChanges([]);
+        }
+    }, []);
+
+
+
     /* ======================================================================
        INITIAL / FOCUS LOAD
        ====================================================================== */
@@ -1339,10 +1561,6 @@ export default function AdminWeeklyDepositHistoryScreen() {
     useFocusEffect(
         useCallback(() => {
 
-            /*
-             * Recalculate current week every time
-             * the screen gets focus.
-             */
             const currentWeek =
                 getCurrentWeekNumber();
 
@@ -1350,12 +1568,12 @@ export default function AdminWeeklyDepositHistoryScreen() {
                 currentWeek
             );
 
-            loadDeposits(
-                true
-            );
+            loadDeposits(true);
+            loadShareChanges();
 
         }, [
             loadDeposits,
+            loadShareChanges,
         ])
     );
 
@@ -1364,30 +1582,20 @@ export default function AdminWeeklyDepositHistoryScreen() {
        REFRESH
        ====================================================================== */
 
-    const handleRefresh =
-        async () => {
+    const handleRefresh = async () => {
+        setRefreshing(true);
 
-            setRefreshing(
-                true
-            );
+        setSelectedWeek(getCurrentWeekNumber());
 
-            /*
-             * Refresh current week too.
-             */
-            setSelectedWeek(
-                getCurrentWeekNumber()
-            );
-
-            await loadDeposits(
-                false
-            );
-
-            setRefreshing(
-                false
-            );
-
-        };
-
+        try {
+            await Promise.all([
+                loadDeposits(false),
+                loadShareChanges(),
+            ]);
+        } finally {
+            setRefreshing(false);
+        }
+    };
 
     /* ======================================================================
        BUILD HISTORY RECORDS
@@ -1548,34 +1756,166 @@ export default function AdminWeeklyDepositHistoryScreen() {
             ]
         );
 
+    /* ======================================================================
+FILTER SHARE CHANGES
+
+Effective Week + Member Search
+====================================================================== */
+
+    const filteredShareChanges = useMemo(() => {
+
+        const memberQuery = String(memberSearch || '')
+            .trim()
+            .toLowerCase();
+
+        return shareChanges.filter((record) => {
+
+            // Effective Week অনুযায়ী filter
+            if (Number(record.changeWeek) !== selectedWeek) {
+                return false;
+            }
+
+            // Member Search
+            if (memberQuery) {
+
+                const memberId = String(
+                    record.memberId || ''
+                ).toLowerCase();
+
+                const memberName = String(
+                    record.memberName || ''
+                ).toLowerCase();
+
+                if (
+                    !memberId.includes(memberQuery) &&
+                    !memberName.includes(memberQuery)
+                ) {
+                    return false;
+                }
+            }
+
+            return true;
+
+        });
+
+    }, [
+        shareChanges,
+        selectedWeek,
+        memberSearch,
+    ]);
+
+    /* ==========================================================================
+   TOTAL COLLECTION
+
+   Total Collection = Approved Deposits + Share Increase
+
+   Excluded:
+   - Pending Deposits
+   - Rejected Deposits
+   - Share Decrease
+   - Member Search Filter
+   ========================================================================== */
+
+    const totalCollection = useMemo(() => {
+
+        // 1. Selected week's approved deposits
+        const approvedDeposits = historyRecords.reduce(
+            (total, record) => {
+
+                if (Number(record.historyWeek) !== selectedWeek) {
+                    return total;
+                }
+
+                const status = String(
+                    record.status || ''
+                ).trim().toLowerCase();
+
+                if (
+                    status !== 'approved' &&
+                    status !== 'approve'
+                ) {
+                    return total;
+                }
+
+                return total + Number(
+                    record.depositAmount || 0
+                );
+
+            },
+            0
+        );
+
+
+        // 2. Selected week's share increases
+        const shareIncrease = shareChanges.reduce(
+            (total, record) => {
+
+                const previousShares = Number(
+                    record.previousShareCount || 0
+                );
+
+                const newShares = Number(
+                    record.newShareCount || 0
+                );
+
+                // Only selected week
+                if (
+                    Number(record.changeWeek) !== selectedWeek
+                ) {
+                    return total;
+                }
+
+                // Exclude share decrease and unchanged shares
+                if (newShares <= previousShares) {
+                    return total;
+                }
+
+                return total + Number(
+                    record.newDepositRequired || 0
+                );
+
+            },
+            0
+        );
+
+
+        // 3. Final total
+        return approvedDeposits + shareIncrease;
+
+    }, [
+        historyRecords,
+        shareChanges,
+        selectedWeek,
+    ]);
+
 
     /* ======================================================================
        OPEN MENU
        ====================================================================== */
 
     const openMenu = () => {
-    setMenuMounted(true);
+        setMenuMounted(true);
 
-    requestAnimationFrame(() => {
-        Animated.parallel([
-            Animated.timing(drawerTranslateX, {
-                toValue: 0,
-                duration: 280,
-                easing: Easing.out(Easing.cubic),
-                useNativeDriver: true,
-            }),
+        requestAnimationFrame(() => {
+            Animated.parallel([
+                Animated.timing(drawerTranslateX, {
+                    toValue: 0,
+                    duration: 280,
+                    easing: Easing.out(Easing.cubic),
+                    useNativeDriver: true,
+                }),
 
-            Animated.timing(overlayOpacity, {
-                toValue: 1,
-                duration: 230,
-                easing: Easing.out(Easing.quad),
-                useNativeDriver: true,
-            }),
-        ]).start();
-    });
+                Animated.timing(overlayOpacity, {
+                    toValue: 1,
+                    duration: 230,
+                    easing: Easing.out(Easing.quad),
+                    useNativeDriver: true,
+                }),
+            ]).start();
+        });
 
-    setMenuOpen(true);
-};
+        setMenuOpen(true);
+    };
 
 
     /* ======================================================================
@@ -1583,35 +1923,35 @@ export default function AdminWeeklyDepositHistoryScreen() {
        ====================================================================== */
 
     const closeMenu = (
-    callback?: () => void
-) => {
-    Animated.parallel([
-        Animated.timing(drawerTranslateX, {
-            toValue: -330,
-            duration: 230,
-            easing: Easing.in(Easing.cubic),
-            useNativeDriver: true,
-        }),
+        callback?: () => void
+    ) => {
+        Animated.parallel([
+            Animated.timing(drawerTranslateX, {
+                toValue: -330,
+                duration: 230,
+                easing: Easing.in(Easing.cubic),
+                useNativeDriver: true,
+            }),
 
-        Animated.timing(overlayOpacity, {
-            toValue: 0,
-            duration: 180,
-            easing: Easing.in(Easing.quad),
-            useNativeDriver: true,
-        }),
-    ]).start(({ finished }) => {
-        if (!finished) {
-            return;
-        }
+            Animated.timing(overlayOpacity, {
+                toValue: 0,
+                duration: 180,
+                easing: Easing.in(Easing.quad),
+                useNativeDriver: true,
+            }),
+        ]).start(({ finished }) => {
+            if (!finished) {
+                return;
+            }
 
-        setMenuOpen(false);
-        setMenuMounted(false);
+            setMenuOpen(false);
+            setMenuMounted(false);
 
-        if (callback) {
-            callback();
-        }
-    });
-};
+            if (callback) {
+                callback();
+            }
+        });
+    };
 
 
     /* ======================================================================
@@ -2197,6 +2537,50 @@ export default function AdminWeeklyDepositHistoryScreen() {
 
                     </View>
 
+                    {/* WEEK SELECTOR */}
+
+                    {/* এখানে তোমার বর্তমান Week Selector-এর কোড থাকবে */}
+
+
+/* এখানে Total Collection Card বসবে */
+
+                    {/* TOTAL COLLECTION */}
+
+                    <View style={styles.totalCollectionCard}>
+
+                        <View style={styles.totalCollectionLeft}>
+
+                            <View style={styles.totalCollectionIcon}>
+                                <Ionicons
+                                    name="wallet-outline"
+                                    size={22}
+                                    color="#0f172a"
+                                />
+                            </View>
+
+                            <View>
+                                <Text style={styles.totalCollectionLabel}>
+                                    {t.totalCollection}
+                                </Text>
+
+                                <Text style={styles.totalCollectionWeek}>
+                                    {t.week} {selectedWeek}
+                                </Text>
+                            </View>
+
+                        </View>
+
+                        <Text style={styles.totalCollectionAmount}>
+                            ৳ {formatCurrency(totalCollection)}
+                        </Text>
+
+                    </View>
+
+
+                    {/* MEMBER SEARCH */}
+
+                    <View style={styles.searchBlock}></View>
+
 
                     {/* MEMBER SEARCH */}
 
@@ -2343,6 +2727,7 @@ export default function AdminWeeklyDepositHistoryScreen() {
                     </View>
 
 
+
                     {/* EMPTY */}
 
                     {filteredHistory.length === 0 ? (
@@ -2399,6 +2784,75 @@ export default function AdminWeeklyDepositHistoryScreen() {
 
                             )
                         )
+
+                    )}
+
+                    {/* ==================================================================
+   SHARE CHANGE HISTORY
+   ================================================================== */}
+
+                    <View style={styles.historyHeader}>
+
+                        <View style={styles.historyTitleRow}>
+
+                            <View style={styles.historyIcon}>
+                                <Ionicons
+                                    name="layers-outline"
+                                    size={18}
+                                    color="#0f172a"
+                                />
+                            </View>
+
+                            <Text style={styles.historyTitle}>
+                                {t.shareHistory}
+                            </Text>
+
+                        </View>
+
+                        <View style={styles.countBadge}>
+
+                            <Text style={styles.countNumber}>
+                                {filteredShareChanges.length}
+                            </Text>
+
+                            <Text style={styles.countText}>
+                                {t.records}
+                            </Text>
+
+                        </View>
+
+                    </View>
+
+
+                    {filteredShareChanges.length === 0 ? (
+
+                        <View style={styles.emptyCard}>
+
+                            <View style={styles.emptyIcon}>
+                                <Ionicons
+                                    name="layers-outline"
+                                    size={29}
+                                    color="#64748b"
+                                />
+                            </View>
+
+                            <Text style={styles.emptyTitle}>
+                                {t.noShareHistory}
+                            </Text>
+
+                        </View>
+
+                    ) : (
+
+                        filteredShareChanges.map((record) => (
+
+                            <ShareChangeHistoryCard
+                                key={record.historyId}
+                                record={record}
+                                t={t}
+                            />
+
+                        ))
 
                     )}
 
@@ -2476,7 +2930,7 @@ export default function AdminWeeklyDepositHistoryScreen() {
                                 styles.drawerSafeArea
                             }
                             edges={[
-                                
+
                                 'bottom',
                             ]}
                         >
@@ -3112,6 +3566,190 @@ function HistoryCard({
                         record.adminId ||
                         '-'
                     }
+                />
+
+            </View>
+
+        </View>
+
+    );
+
+}
+
+
+/* ==========================================================================
+   SHARE CHANGE HISTORY CARD
+   ========================================================================== */
+
+type ShareChangeHistoryCardProps = {
+    record: ShareHistoryRecord;
+    t: typeof translations.bn;
+};
+
+function ShareChangeHistoryCard({
+    record,
+    t,
+}: ShareChangeHistoryCardProps) {
+
+    const isIncrease =
+        Number(record.newShareCount) >
+        Number(record.previousShareCount);
+
+    return (
+
+        <View style={styles.historyCard}>
+
+            {/* CARD HEADER */}
+
+            <View style={styles.cardHeader}>
+
+                <View style={styles.memberHeader}>
+
+                    <View style={styles.memberIcon}>
+                        <Ionicons
+                            name="person-outline"
+                            size={20}
+                            color="#0f172a"
+                        />
+                    </View>
+
+                    <View style={styles.memberHeaderText}>
+
+                        <Text
+                            style={styles.memberName}
+                            numberOfLines={1}
+                        >
+                            {record.memberName || '-'}
+                        </Text>
+
+                        <Text style={styles.memberIdText}>
+                            {t.memberId}: {record.memberId || '-'}
+                        </Text>
+
+                    </View>
+
+                </View>
+
+                <View
+                    style={[
+                        styles.statusBadge,
+                        isIncrease
+                            ? styles.statusApproved
+                            : styles.statusRejected,
+                    ]}
+                >
+
+                    <Text
+                        style={[
+                            styles.statusBadgeText,
+                            isIncrease
+                                ? styles.statusApprovedText
+                                : styles.statusRejectedText,
+                        ]}
+                    >
+                        {isIncrease
+                            ? t.shareIncrease
+                            : t.shareDecrease
+                        }
+                    </Text>
+
+                </View>
+
+            </View>
+
+
+            {/* SHARE DETAILS */}
+
+            <View style={styles.details}>
+
+                <HistoryDetailItem
+                    icon="layers-outline"
+                    label={t.previousShare}
+                    value={String(record.previousShareCount)}
+                />
+
+                <HistoryDetailItem
+                    icon="layers"
+                    label={t.newShare}
+                    value={String(record.newShareCount)}
+                />
+
+                <HistoryDetailItem
+                    icon="cash-outline"
+                    label={t.previousWeeklyAmount}
+                    value={`৳ ${formatCurrency(record.previousWeeklyAmount)}`}
+                />
+
+                <HistoryDetailItem
+                    icon="wallet-outline"
+                    label={t.newWeeklyAmount}
+                    value={`৳ ${formatCurrency(record.newWeeklyAmount)}`}
+                />
+
+                <HistoryDetailItem
+                    icon="calendar-outline"
+                    label={t.changeWeek}
+                    value={`${t.week} ${record.changeWeek}`}
+                />
+
+                <HistoryDetailItem
+                    icon="calendar"
+                    label={t.effectiveWeek}
+                    value={`${t.week} ${record.effectiveWeek}`}
+                />
+
+                {/* INCREASE DETAILS */}
+
+                {isIncrease && (
+                    <>
+
+                        <HistoryDetailItem
+                            icon="cash-outline"
+                            label={t.newDepositRequired}
+                            value={`৳ ${formatCurrency(record.newDepositRequired)}`}
+                        />
+
+                        <HistoryDetailItem
+                            icon="checkmark-circle-outline"
+                            label={t.advanceApplied}
+                            value={`৳ ${formatCurrency(record.advanceApplied)}`}
+                        />
+
+                    </>
+                )}
+
+                {/* DECREASE / WITHDRAWAL DETAILS */}
+
+                {!isIncrease && record.withdrawal && (
+                    <>
+
+                        <HistoryDetailItem
+                            icon="wallet-outline"
+                            label={t.refundAmount}
+                            value={`৳ ${formatCurrency(record.withdrawal.refundAmount)}`}
+                        />
+
+                        <HistoryDetailItem
+                            icon="calendar-outline"
+                            label={t.withdrawalWeek}
+                            value={`${t.week} ${record.withdrawal.week}`}
+                        />
+
+                    </>
+                )}
+
+                {/* DATE & ADMIN */}
+
+                <HistoryDetailItem
+                    icon="time-outline"
+                    label={t.date}
+                    value={formatDate(record.date)}
+                />
+
+                <HistoryDetailItem
+                    icon="shield-checkmark-outline"
+                    label={t.adminId}
+                    value={record.adminId || '-'}
                 />
 
             </View>
@@ -4293,6 +4931,54 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '800',
         color: '#dc2626',
+    },
+
+    /* TOTAL COLLECTION */
+
+    totalCollectionCard: {
+        backgroundColor: '#ffffff',
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        borderRadius: 14,
+        padding: 16,
+        marginBottom: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+
+    totalCollectionLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+
+    totalCollectionIcon: {
+        width: 42,
+        height: 42,
+        borderRadius: 12,
+        backgroundColor: '#f1f5f9',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12,
+    },
+
+    totalCollectionLabel: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#334155',
+    },
+
+    totalCollectionWeek: {
+        fontSize: 12,
+        color: '#64748b',
+        marginTop: 3,
+    },
+
+    totalCollectionAmount: {
+        fontSize: 20,
+        fontWeight: '800',
+        color: '#0f172a',
     },
 
 });

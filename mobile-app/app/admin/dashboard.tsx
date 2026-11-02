@@ -1152,6 +1152,25 @@ export default function AdminDashboardScreen() {
 
                     </Pressable>
 
+                    <Pressable
+                        onPress={handleLogout}
+                        style={({ pressed }) => [
+                            styles.retryButton,
+                            styles.logoutRetryButton,
+                            pressed && styles.retryButtonPressed,
+                        ]}
+                    >
+                        <Ionicons
+                            name="log-out-outline"
+                            size={18}
+                            color="#dc2626"
+                        />
+
+                        <Text style={styles.logoutRetryButtonText}>
+                            {t.logout}
+                        </Text>
+                    </Pressable>
+
                 </View>
 
             </SafeAreaView>
@@ -1322,7 +1341,7 @@ export default function AdminDashboardScreen() {
                         >
                             ৳{' '}
                             {formatAmount(
-                                dashboard?.totalDeposit  || 0
+                                dashboard?.totalDeposit || 0
                             )}
                         </Text>
 
@@ -1411,7 +1430,7 @@ export default function AdminDashboardScreen() {
                             >
                                 ৳{' '}
                                 {formatAmount(
-                                    dashboard?.weeklyDepositAmount  ||
+                                    dashboard?.weeklyDepositAmount ||
                                     0
                                 )}
                             </Text>
@@ -1905,7 +1924,7 @@ export default function AdminDashboardScreen() {
                                 styles.drawerSafeArea
                             }
                             edges={[
-                                
+
                                 'bottom',
                             ]}
                         >
@@ -3340,6 +3359,19 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '800',
         color: '#dc2626',
+    },
+
+    logoutRetryButton: {
+        marginTop: 12,
+        backgroundColor: '#fee2e2',
+        borderWidth: 1,
+        borderColor: '#fecaca',
+    },
+
+    logoutRetryButtonText: {
+        color: '#dc2626',
+        fontSize: 15,
+        fontWeight: '600',
     },
 
 });

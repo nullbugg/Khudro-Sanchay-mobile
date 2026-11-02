@@ -1,3 +1,4 @@
+
 import {
   getSheetValues,
 } from "../config/google-sheets";
@@ -27,27 +28,18 @@ export interface AdminDashboardData {
 |--------------------------------------------------------------------------
 */
 
-function parseNumber(
-  value: unknown
-): number {
-  const number =
-    Number(
-      String(value ?? "")
-        .replace(/,/g, "")
-        .trim()
-    );
+function parseNumber(value: unknown): number {
+  const number = Number(
+    String(value ?? "")
+      .replace(/,/g, "")
+      .trim()
+  );
 
-  return Number.isFinite(number)
-    ? number
-    : 0;
+  return Number.isFinite(number) ? number : 0;
 }
 
-function normalize(
-  value: unknown
-): string {
-  return String(
-    value ?? ""
-  )
+function normalize(value: unknown): string {
+  return String(value ?? "")
     .trim()
     .toUpperCase();
 }
@@ -59,227 +51,93 @@ function normalize(
 */
 
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
+
   /*
   |--------------------------------------------------------------------------
-  | Members
+  | 1. Members
   |--------------------------------------------------------------------------
-  |
-  | Members:
-  |
-  | A = Member ID
-  | B = Member Name
-  | C = Phone
-  | D = Join Date
-  | E = Current Share Count
-  | F = Current Weekly Amount
-  | G = PIN Hash
-  | H = Status
-  | I = Created At
-  | J = Updated At
-  |
   */
 
-  const memberRows =
-    await getSheetValues(
-      "Members!A:J"
-    );
+  const memberRows = await getSheetValues("Members!A:J");
 
   const memberData =
     memberRows.length > 1
       ? memberRows.slice(1)
       : [];
 
-  /*
-  |--------------------------------------------------------------------------
-  | Only ACTIVE members
-  |--------------------------------------------------------------------------
-  */
+  const activeMembers = memberData.filter(
+    (row) => normalize(row[7]) === "ACTIVE"
+  );
 
-  const activeMembers =
-    memberData.filter(
-      (row) =>
-        normalize(row[7]) ===
-        "ACTIVE"
-    );
+  const totalMembers = activeMembers.length;
+
+  const totalShares = activeMembers.reduce(
+    (total, row) => total + parseNumber(row[4]),
+    0
+  );
 
   /*
   |--------------------------------------------------------------------------
-  | Total Members
+  | 2. Weekly Cycle
   |--------------------------------------------------------------------------
   */
 
-  const totalMembers =
-    activeMembers.length;
+  const FIRST_WEEK_DATE = new Date(
+    "2026-04-24T00:00:00+06:00"
+  );
 
-  /*
-  |--------------------------------------------------------------------------
-  | Total Shares
-  |--------------------------------------------------------------------------
-  |
-  | E = Current Share Count
-  |
-  */
+  const now = new Date();
 
-  const totalShares =
-    activeMembers.reduce(
-      (total, row) =>
-        total +
-        parseNumber(row[4]),
-      0
-    );
+  const dhakaDateString = new Intl.DateTimeFormat(
+    "en-CA",
+    {
+      timeZone: "Asia/Dhaka",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }
+  ).format(now);
 
-  /*
-  |--------------------------------------------------------------------------
-  | Weekly Deposit Amount
-  |--------------------------------------------------------------------------
-  |
-  | F = Current Weekly Amount
-  |
-  */
+  const [year, month, day] = dhakaDateString
+    .split("-")
+    .map(Number);
 
-  const weeklyDepositAmount =
-    activeMembers.reduce(
-      (total, row) =>
-        total +
-        parseNumber(row[5]),
-      0
-    );
-
-  /*
-  |--------------------------------------------------------------------------
-  | Weekly Cycle
-  |--------------------------------------------------------------------------
-  |
-  | Week 1 = 24-04-2026
-  |
-  | Every 7 days = next week
-  |
-  */
-
-  const FIRST_WEEK_DATE =
-    new Date(
-      "2026-04-24T00:00:00+06:00"
-    );
-
-  const now =
-    new Date();
-
-  /*
-  |--------------------------------------------------------------------------
-  | Bangladesh timezone date
-  |--------------------------------------------------------------------------
-  */
-
-  const dhakaDateString =
-    new Intl.DateTimeFormat(
-      "en-CA",
-      {
-        timeZone: "Asia/Dhaka",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      }
-    ).format(now);
-
-  /*
-  |--------------------------------------------------------------------------
-  | Convert YYYY-MM-DD
-  |--------------------------------------------------------------------------
-  */
-
-  const [
-    year,
-    month,
-    day,
-  ] =
-    dhakaDateString
-      .split("-")
-      .map(Number);
-
-  /*
-  |--------------------------------------------------------------------------
-  | Create current Bangladesh date
-  |--------------------------------------------------------------------------
-  */
-
-  const today =
-    new Date(
-      `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T00:00:00+06:00`
-    );
-
-  /*
-  |--------------------------------------------------------------------------
-  | Calculate current week
-  |--------------------------------------------------------------------------
-  */
+  const today = new Date(
+    `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T00:00:00+06:00`
+  );
 
   const differenceInMilliseconds =
-    today.getTime() -
-    FIRST_WEEK_DATE.getTime();
+    today.getTime() - FIRST_WEEK_DATE.getTime();
 
-  const differenceInDays =
-    Math.floor(
-      differenceInMilliseconds /
-      (1000 * 60 * 60 * 24)
-    );
-
-  /*
-  |--------------------------------------------------------------------------
-  | Before the first week
-  |--------------------------------------------------------------------------
-  */
+  const differenceInDays = Math.floor(
+    differenceInMilliseconds / (1000 * 60 * 60 * 24)
+  );
 
   const currentWeek =
     differenceInDays < 0
       ? 1
-      : Math.floor(
-        differenceInDays / 7
-      ) + 1;
+      : Math.floor(differenceInDays / 7) + 1;
 
-  const nextWeek =
-    currentWeek + 1;
+  const nextWeek = currentWeek + 1;
 
-  /*
-  |--------------------------------------------------------------------------
-  | Current Week Date
-  |--------------------------------------------------------------------------
-  */
-
-  const currentWeekDateObject =
-    new Date(
-      FIRST_WEEK_DATE
-    );
+  const currentWeekDateObject = new Date(
+    FIRST_WEEK_DATE
+  );
 
   currentWeekDateObject.setDate(
     currentWeekDateObject.getDate() +
     (currentWeek - 1) * 7
   );
 
-  /*
-  |--------------------------------------------------------------------------
-  | Next Week Date
-  |--------------------------------------------------------------------------
-  */
-
-  const nextWeekDateObject =
-    new Date(
-      currentWeekDateObject
-    );
-
-  nextWeekDateObject.setDate(
-    nextWeekDateObject.getDate() +
-    7
+  const nextWeekDateObject = new Date(
+    currentWeekDateObject
   );
 
-  /*
-  |--------------------------------------------------------------------------
-  | Format Date
-  |--------------------------------------------------------------------------
-  */
+  nextWeekDateObject.setDate(
+    nextWeekDateObject.getDate() + 7
+  );
 
-  function formatWeekDate(
-    date: Date
-  ): string {
+  function formatWeekDate(date: Date): string {
     return new Intl.DateTimeFormat(
       "en-GB",
       {
@@ -291,273 +149,416 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     ).format(date);
   }
 
-  const currentWeekDate =
-    formatWeekDate(
-      currentWeekDateObject
-    );
+  const currentWeekDate = formatWeekDate(
+    currentWeekDateObject
+  );
 
-  const nextWeekDate =
-    formatWeekDate(
-      nextWeekDateObject
-    );
+  const nextWeekDate = formatWeekDate(
+    nextWeekDateObject
+  );
 
   /*
   |--------------------------------------------------------------------------
-  | Collections
+  | 3. Read Collections, Share History & Withdrawal History
   |--------------------------------------------------------------------------
-  |
-  | Current Collections structure:
-  |
-  | A = Collection ID
-  | B = Member ID
-  | C = Member Name
-  | D = Week
-  | E = Share Count
-  | F = Expected Amount
-  | G = Arrears
-  | H = Paid Amount
-  | I = Status
-  | J = Date
-  | K = Admin ID
-  | L = Notes
-  |
   */
 
-  const collectionRows =
-    await getSheetValues(
-      "Collections!A:L"
-    );
+  const [
+    collectionRows,
+    shareHistoryRows,
+    withdrawalRows,
+  ] = await Promise.all([
+    getSheetValues("Collections!A:L"),
+    getSheetValues("'Share History'!A:N"),
+    getSheetValues("'Withdrawal History'!A:I"),
+  ]);
 
   const collectionData =
     collectionRows.length > 1
       ? collectionRows.slice(1)
       : [];
 
-  /*
-  |--------------------------------------------------------------------------
-  | Only PAID collections
-  |--------------------------------------------------------------------------
-  |
-  | H = Paid Amount
-  | I = Status
-  |
-  */
+  const shareHistoryData =
+    shareHistoryRows.length > 1
+      ? shareHistoryRows.slice(1)
+      : [];
 
-  const paidCollections =
-    collectionData.filter(
-      (row) =>
-        normalize(row[8]) ===
-        "PAID"
-    );
+  const withdrawalData =
+    withdrawalRows.length > 1
+      ? withdrawalRows.slice(1)
+      : [];
 
   /*
   |--------------------------------------------------------------------------
-  | Parse Collection Week
+  | 4. Parse Collection Week
   |--------------------------------------------------------------------------
-  |
-  | D = Week
-  |
-  | Examples:
-  |
-  | "Week 1"
-  | "Week 23"
-  | "23"
-  |
   */
 
   function getCollectionWeekNumber(
     value: unknown
   ): number {
-    const text =
-      String(
-        value ?? ""
-      )
-        .trim();
+    const text = String(value ?? "").trim();
 
-    if (!text) {
-      return 0;
-    }
+    if (!text) return 0;
 
-    const match =
-      text.match(
-        /(\d+)/
-      );
+    const match = text.match(/(\d+)/);
 
-    if (!match) {
-      return 0;
-    }
+    if (!match) return 0;
 
-    const weekNumber =
-      Number(
-        match[1]
-      );
+    const weekNumber = Number(match[1]);
 
-    return Number.isInteger(
-      weekNumber
-    ) &&
+    return Number.isInteger(weekNumber) &&
       weekNumber > 0
       ? weekNumber
       : 0;
   }
 
+  const paidCollections = collectionData.filter(
+    (row) => normalize(row[8]) === "PAID"
+  );
+
   /*
   |--------------------------------------------------------------------------
-  | Total Deposit
+  | 5. Share Increase Deposits
   |--------------------------------------------------------------------------
   |
-  | সব PAID collection-এর Paid Amount-এর SUM
+  | Share History:
+  | C = Previous Share Count
+  | D = New Share Count
+  | K = New Deposit Required
   |
-  | অর্থাৎ:
-  |
-  | Week 1 থেকে ভবিষ্যতের সব Week পর্যন্ত
-  | যেসব collection PAID হয়েছে,
-  | সবগুলোর Paid Amount এখানে যোগ হবে।
-  |
-  | H = Paid Amount
+  | Only Share Increase records are counted.
+  | J (Advance Applied) is NOT counted again.
   |
   */
 
-  const totalDeposit =
-    paidCollections.reduce(
-      (total, row) =>
-        total +
-        parseNumber(row[7]),
+  const additionalShareDeposits =
+    shareHistoryData.reduce(
+      (total, row) => {
+        const previousShares = parseNumber(row[2]);
+        const newShares = parseNumber(row[3]);
+
+        const newDepositRequired = Math.max(
+          0,
+          parseNumber(row[10])
+        );
+
+        if (newShares > previousShares) {
+          return total + newDepositRequired;
+        }
+
+        return total;
+      },
       0
     );
 
   /*
   |--------------------------------------------------------------------------
-  | Total Weekly Deposit
+  | 6. Withdrawal / Refund Allocation
   |--------------------------------------------------------------------------
   |
-  | Week 1 থেকে Current Week পর্যন্ত
-  | সব PAID collection-এর Paid Amount-এর SUM
+  | Withdrawal History:
+  | B = Member ID
+  | D = Refund Amount
+  | F = Withdrawal Week
+  | I = Notes
   |
-  | উদাহরণ:
+  | Refund is mapped by Member ID + Week.
+  | This prevents one member's refund from
+  | affecting another member's calculation.
   |
-  | Current Week = 23
+  */
+
+  const refundByMemberWeek = new Map<string, number>();
+
+  const untrackedRefundByMemberWeek =
+    new Map<string, number>();
+
+  let totalWithdrawn = 0;
+
+  for (const row of withdrawalData) {
+    const memberId = normalize(row[1]);
+
+    const refundAmount = parseNumber(row[3]);
+
+    if (!memberId || refundAmount <= 0) {
+      continue;
+    }
+
+    totalWithdrawn += refundAmount;
+
+    const notes = String(row[8] || "").trim();
+
+    const withdrawalWeek =
+      parseNumber(row[5]) || currentWeek;
+
+    let mappedAmount = 0;
+
+    const mappedRefunds = new Map<number, number>();
+
+    // Old detailed format:
+    // SHARE_DECREASE_REFUND|WEEKLY=1:50,2:50
+
+    const detailedMatch = notes.match(
+      /WEEKLY=([0-9:,]+)/i
+    );
+
+    if (detailedMatch) {
+      const entries = detailedMatch[1].split(",");
+
+      for (const entry of entries) {
+        const [weekText, amountText] =
+          entry.split(":");
+
+        const week = Number(weekText);
+        const amount = Number(amountText);
+
+        if (week > 0 && amount > 0) {
+          mappedRefunds.set(
+            week,
+            (mappedRefunds.get(week) || 0) + amount
+          );
+
+          mappedAmount += amount;
+        }
+      }
+    }
+
+    // Readable format:
+    // SHARE DECREASE! REFUND WEEK (01 - 28) = 1400
+
+    if (mappedAmount === 0) {
+      const readableMatch = notes.match(
+        /^SHARE DECREASE! REFUND WEEK \((\d+)\s*-\s*(\d+)\)\s*=\s*(\d+(?:\.\d+)?)$/i
+      );
+
+      if (readableMatch) {
+        const startWeek = Number(readableMatch[1]);
+        const endWeek = Number(readableMatch[2]);
+        const amount = Number(readableMatch[3]);
+
+        const weekCount = endWeek - startWeek + 1;
+
+        if (
+          startWeek > 0 &&
+          endWeek >= startWeek &&
+          weekCount > 0 &&
+          Math.abs(amount - refundAmount) < 0.01 &&
+          amount % weekCount === 0
+        ) {
+          const perWeek = amount / weekCount;
+
+          for (
+            let week = startWeek;
+            week <= endWeek;
+            week++
+          ) {
+            mappedRefunds.set(week, perWeek);
+          }
+
+          mappedAmount = amount;
+        }
+      }
+    }
+
+    // Valid mapped refund
+    if (
+      mappedAmount > 0 &&
+      Math.abs(mappedAmount - refundAmount) < 0.01
+    ) {
+      for (const [week, amount] of mappedRefunds) {
+        const key = `${memberId}::${week}`;
+
+        refundByMemberWeek.set(
+          key,
+          (refundByMemberWeek.get(key) || 0) + amount
+        );
+      }
+    } else {
+      // Untracked refund
+      const key = `${memberId}::${withdrawalWeek}`;
+
+      untrackedRefundByMemberWeek.set(
+        key,
+        (untrackedRefundByMemberWeek.get(key) || 0) +
+        refundAmount
+      );
+    }
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | 7. Calculate Weekly Refund
+  |--------------------------------------------------------------------------
+  */
+
+  let weeklyRefund = 0;
+
+  for (const [key, amount] of refundByMemberWeek) {
+    const week = Number(key.split("::")[1]);
+
+    if (week <= currentWeek) {
+      weeklyRefund += amount;
+    }
+  }
+
+  for (
+    const [key, amount] of untrackedRefundByMemberWeek
+  ) {
+    const week = Number(key.split("::")[1]);
+
+    if (week <= currentWeek) {
+      weeklyRefund += amount;
+    }
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | 8. Calculate Advance Refund
+  |--------------------------------------------------------------------------
+  */
+
+  const advanceRefund = Math.max(
+    0,
+    totalWithdrawn - weeklyRefund
+  );
+
+  /*
+  |--------------------------------------------------------------------------
+  | 9. Total Collection Deposit
+  |--------------------------------------------------------------------------
+  */
+
+  const totalCollectionDeposit =
+    paidCollections.reduce(
+      (total, row) =>
+        total + parseNumber(row[7]),
+      0
+    );
+
+  /*
+  |--------------------------------------------------------------------------
+  | 10. Weekly Deposit
+  |--------------------------------------------------------------------------
   |
-  | তাহলে:
-  | Week 1 + Week 2 + ... + Week 23
-  |
-  | Week 24 বা তার পরের Week এখানে আসবে না।
+  | Paid Weekly Collections
+  | + Share Increase Deposits
+  | - Weekly Refund
   |
   */
 
   const weeklyCollectionsUpToCurrentWeek =
-    paidCollections.filter(
-      (row) => {
-        const weekNumber =
-          getCollectionWeekNumber(
-            row[3]
-          );
+    paidCollections.filter((row) => {
+      const weekNumber =
+        getCollectionWeekNumber(row[3]);
 
-        return (
-          weekNumber >= 1 &&
-          weekNumber <= currentWeek
-        );
-      }
-    );
+      return (
+        weekNumber >= 1 &&
+        weekNumber <= currentWeek
+      );
+    });
 
   const totalWeeklyDeposit =
     weeklyCollectionsUpToCurrentWeek.reduce(
       (total, row) =>
-        total +
-        parseNumber(row[7]),
+        total + parseNumber(row[7]),
       0
-    );
+    ) +
+    additionalShareDeposits -
+    weeklyRefund;
 
   /*
   |--------------------------------------------------------------------------
-  | Current Week Deposit
+  | 11. Current Week Deposit
   |--------------------------------------------------------------------------
-  |
-  | শুধু Current Week-এর Paid Amount
-  |
-  | D = Week
-  | H = Paid Amount
-  |
   */
 
   const weeklyCollectionRows =
     paidCollections.filter(
       (row) =>
-        getCollectionWeekNumber(
-          row[3]
-        ) === currentWeek
+        getCollectionWeekNumber(row[3]) === currentWeek
     );
 
   const currentWeekPaidAmount =
     weeklyCollectionRows.reduce(
       (total, row) =>
-        total +
-        parseNumber(row[7]),
+        total + parseNumber(row[7]),
       0
     );
 
   /*
   |--------------------------------------------------------------------------
-  | Advance
+  | 12. Total Advance
   |--------------------------------------------------------------------------
   |
-  | Current Week-এর পরের Week-এর
-  | Paid Amount-এর SUM
-  |
-  | উদাহরণ:
-  |
-  | Current Week = 23
-  |
-  | তাহলে:
-  | Week 24 + Week 25 + Week 26 ...
-  |
-  | সব PAID future-week collection
-  | Advance হিসেবে গণনা হবে।
+  | Future Week Collections
+  | - Advance Refund
   |
   */
 
   const advanceCollectionRows =
     paidCollections.filter(
       (row) =>
-        getCollectionWeekNumber(
-          row[3]
-        ) > currentWeek
+        getCollectionWeekNumber(row[3]) > currentWeek
     );
 
   const totalAdvance =
     advanceCollectionRows.reduce(
       (total, row) =>
-        total +
-        parseNumber(row[7]),
+        total + parseNumber(row[7]),
       0
-    );
+    ) - advanceRefund;
 
   /*
   |--------------------------------------------------------------------------
-  | Return
+  | 13. Final Total Deposit
+  |--------------------------------------------------------------------------
+  |
+  | Paid Collections
+  | + Share Increase Deposits
+  | - All Withdrawals / Refunds
+  |
+  */
+
+  const totalDeposit =
+    totalCollectionDeposit +
+    additionalShareDeposits -
+    totalWithdrawn;
+
+  /*
+  |--------------------------------------------------------------------------
+  | 14. Debug Logs
+  |--------------------------------------------------------------------------
+  */
+
+  console.log("ADMIN DASHBOARD FINANCIAL SUMMARY:", {
+    currentWeek,
+    totalCollectionDeposit,
+    additionalShareDeposits,
+    totalWithdrawn,
+    weeklyRefund,
+    advanceRefund,
+    totalWeeklyDeposit,
+    totalAdvance,
+    totalDeposit,
+  });
+
+  /*
+  |--------------------------------------------------------------------------
+  | 15. Return
   |--------------------------------------------------------------------------
   */
 
   return {
     totalDeposit,
-
     totalWeeklyDeposit,
-
     totalAdvance,
-
     totalMembers,
-
     totalShares,
-
-    weeklyDepositAmount:
-      currentWeekPaidAmount,
-
+    weeklyDepositAmount: currentWeekPaidAmount,
     currentWeek,
-
     currentWeekDate,
-
     nextWeek,
-
     nextWeekDate,
   };
 }
-
